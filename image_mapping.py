@@ -126,13 +126,13 @@ IMAGE_MAP = {
 
 "servo motor":
 [
-"main_s.jpeg",
+"main_S.jpeg",
 "S3_hydraulic_motor.jpeg"
 ],
 
 "hydraulic motor":
 [
-"main_s.jpeg",
+"main_S.jpeg",
 "S3_hydraulic_motor.jpeg"
 ]
 
