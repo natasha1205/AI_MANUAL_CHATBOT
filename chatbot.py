@@ -1,52 +1,17 @@
-import re
-from pathlib import Path
-
 import streamlit as st
+from pathlib import Path
+import re
 
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
-
-# ===============================
-# IMAGE MAPPING
-# ===============================
-
-from image_mapping import find_related_image
+from image_mapping import IMAGE_MAP
 
 
 
-# ===============================
-# PAGE CONFIG
-# ===============================
-
-st.set_page_config(
-    page_title="Machine#1 Manual Assistant",
-    page_icon="🤖",
-    layout="centered"
-)
-
-
-st.title("Machine#1 Manual Assistant")
-
-
-
-# ===============================
-# LANGUAGE
-# ===============================
-
-language = st.selectbox(
-    "Select Language:",
-    [
-        "English",
-        "Bahasa Melayu"
-    ]
-)
-
-
-
-# ===============================
+# ==========================================
 # PATH
-# ===============================
+# ==========================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -56,15 +21,14 @@ IMAGE_FOLDER = BASE_DIR / "images"
 
 
 
-
-# ===============================
-# EMBEDDING
-# ===============================
+# ==========================================
+# LOAD DATABASE
+# ==========================================
 
 @st.cache_resource
-def load_embedding():
+def load_database():
 
-    return HuggingFaceEmbeddings(
+    embedding = HuggingFaceEmbeddings(
 
         model_name=
         "sentence-transformers/all-MiniLM-L6-v2",
@@ -76,282 +40,239 @@ def load_embedding():
     )
 
 
-
-
-
-# ===============================
-# LOAD DATABASE
-# ===============================
-
-@st.cache_resource
-def load_database():
-
-    return Chroma(
+    db = Chroma(
 
         collection_name="machine_manual",
 
-        persist_directory=
-        str(DATABASE_FOLDER),
+        persist_directory=str(
+            DATABASE_FOLDER
+        ),
 
-        embedding_function=
-        load_embedding()
+        embedding_function=embedding
 
     )
 
 
-
-database = load_database()
-
+    return db
 
 
 
+db = load_database()
 
-# ===============================
-# SEARCH MANUAL
-# ===============================
+
+
+# ==========================================
+# SEARCH FUNCTION
+# ==========================================
 
 def search_manual(question):
 
 
-    results = database.similarity_search(
+    results = db.similarity_search_with_score(
 
         question,
 
-        k=1
+        k=5
 
     )
 
 
-    if results:
+    if not results:
 
-        return results[0]
-
-
-    return None
+        return "No accurate information found."
 
 
 
+    # ==============================
+    # PRIORITY 1:
+    # Search alarm records from manual.txt
+    # ==============================
+
+    for doc, score in results:
 
 
-# ===============================
-# FORMAT OUTPUT
-# ===============================
-
-def format_output(text):
+        content = doc.page_content
 
 
-    # remove No.
+        if (
+            "Alarm Name:" in content
+            and
+            "Solution:" in content
+        ):
 
-    text = re.sub(
-
-        r"No\.\s*:\s*\d+",
-
-        "",
-
-        text
-
-    )
+            return content
 
 
 
-    fields = [
+    # ==============================
+    # PRIORITY 2:
+    # Use PDF only if no alarm record
+    # ==============================
 
-        "Alarm Name",
+    doc, score = results[0]
 
-        "Description",
 
-        "Cause",
+    # reject unrelated PDF
 
-        "Screen Display / Alarm Light",
+    if score > 1.0:
 
-        "Machine State After Alarm",
+        return "No accurate information found."
 
-        "Solution"
 
+    return doc.page_content
+
+
+
+
+# ==========================================
+# FORMAT ANSWER
+# ==========================================
+
+def format_answer(text):
+
+
+    lines = text.split("\n")
+
+
+    output = []
+
+
+    for line in lines:
+
+
+        line = line.strip()
+
+
+        if line == "":
+            continue
+
+
+
+        # Remove No:5001
+        # Remove No.:5001
+        if re.match(
+
+            r"^No\.?\s*:\s*\d+",
+
+            line,
+
+            re.IGNORECASE
+
+        ):
+
+            continue
+
+
+
+        # Remove page number
+
+        if re.match(
+
+            r"^Page\s*\d+",
+
+            line,
+
+            re.IGNORECASE
+
+        ):
+
+            continue
+
+
+
+        output.append(
+
+            "• " + line
+
+        )
+
+
+
+    return "\n\n".join(output)
+
+
+
+
+# ==========================================
+# IMAGE FINDER
+# ==========================================
+
+def find_image(answer):
+
+
+    images = []
+
+
+    answer_lower = answer.lower()
+
+
+
+    for keyword, image_list in IMAGE_MAP.items():
+
+
+        if keyword.lower() in answer_lower:
+
+
+            for img in image_list:
+
+
+                if img not in images:
+
+                    images.append(img)
+
+
+
+    return images
+
+
+
+
+# ==========================================
+# STREAMLIT UI
+# ==========================================
+
+st.set_page_config(
+
+    page_title=
+    "Machine Manual Assistant"
+
+)
+
+
+
+st.title(
+
+    "Machine#1 Manual Assistant"
+
+)
+
+
+
+language = st.selectbox(
+
+    "Select Language:",
+
+    [
+        "English",
+        "Malay"
     ]
 
+)
 
 
-    for field in fields:
 
+question = st.text_input(
 
-        text = text.replace(
+    "Enter your question:"
 
-            field + ":",
+)
 
-            "\n\n" + field + ":"
 
-        )
 
+if st.button("Search"):
 
 
-    return text.strip()
-
-
-
-
-
-# ===============================
-# TRANSLATION
-# ===============================
-
-def translate_output(text):
-
-
-    if language == "English":
-
-        return text
-
-
-
-    dictionary = {
-
-
-        "Alarm Name":
-        "Nama Alarm",
-
-
-        "Description":
-        "Penerangan",
-
-
-        "Cause":
-        "Punca",
-
-
-        "Screen Display / Alarm Light":
-        "Paparan Skrin / Lampu Alarm",
-
-
-        "Machine State After Alarm":
-        "Keadaan Mesin Selepas Alarm",
-
-
-        "Solution":
-        "Penyelesaian"
-
-    }
-
-
-
-    for eng,bm in dictionary.items():
-
-
-        text=text.replace(
-
-            eng + ":",
-
-            bm + ":"
-
-        )
-
-
-
-    return text
-
-
-
-
-
-
-
-# ===============================
-# DISPLAY IMAGE
-# ===============================
-
-def display_images(question):
-
-
-    images = find_related_image(question)
-
-
-
-    if not images:
-
-        return
-
-
-
-    st.subheader(
-        "Visual Guide"
-    )
-
-
-
-    for img in images:
-
-
-        image_path = IMAGE_FOLDER / img
-
-
-
-        if image_path.exists():
-
-
-            st.image(
-
-                str(image_path),
-
-                caption=img,
-
-                use_container_width=True
-
-            )
-
-
-
-        else:
-
-
-            st.warning(
-
-                f"Image missing: {img}"
-
-            )
-
-
-
-
-
-
-
-
-
-# ===============================
-# USER INPUT
-# ===============================
-
-
-if language=="English":
-
-    label="Enter your question:"
-
-    button="Search"
-
-
-else:
-
-    label="Masukkan soalan anda:"
-
-    button="Cari"
-
-
-
-
-question = st.text_input(label)
-
-
-
-
-
-# ===============================
-# SEARCH BUTTON
-# ===============================
-
-if st.button(button):
-
-
-    if question.strip()=="":
+    if question.strip() == "":
 
 
         st.warning(
@@ -364,58 +285,87 @@ if st.button(button):
     else:
 
 
-        with st.spinner(
+        answer = search_manual(
 
-            "Searching manual..."
+            question
 
-        ):
-
-
-
-            result = search_manual(question)
+        )
 
 
+        st.subheader(
+
+            "Answer:"
+
+        )
+
+
+        clean_answer = format_answer(
+
+            answer
+
+        )
+
+
+        st.markdown(
+
+            clean_answer
+
+        )
 
 
 
-        if result:
+        # ==========================
+        # IMAGE DISPLAY
+        # ==========================
 
 
-            answer = format_output(
+        image_list = find_image(
 
-                result.page_content
+            answer
+
+        )
+
+
+        if image_list:
+
+
+            st.subheader(
+
+                "Visual Guide"
 
             )
 
 
-
-            answer = translate_output(
-
-                answer
-
-            )
+            for img in image_list:
 
 
+                image_path = (
 
-            # TEXT OUTPUT
+                    IMAGE_FOLDER /
 
-            st.write(answer)
+                    img
 
-
-
-            # IMAGE OUTPUT
-
-            display_images(question)
+                )
 
 
+                if image_path.exists():
+
+
+                    st.image(
+
+                        str(image_path),
+
+                        use_container_width=True
+
+                    )
 
 
 
         else:
 
 
-            st.warning(
+            st.info(
 
-                "Information not found in manual"
+                "No visual guide available"
 
             )

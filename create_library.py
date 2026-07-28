@@ -5,6 +5,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
 
 
 # ==========================================
@@ -13,10 +14,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 BASE_DIR = Path(__file__).resolve().parent
 
-MANUAL_FILE = (
+MANUAL_FOLDER = (
     BASE_DIR /
-    "manual" /
-    "manual.txt"
+    "manual" 
 )
 
 DATABASE_FOLDER = (
@@ -150,38 +150,70 @@ def main():
     print("Program started...")
 
 
-    if not MANUAL_FILE.exists():
+documents = []
 
-        raise FileNotFoundError(
-            "manual.txt not found"
-        )
+# ============================
+# Load manual.txt
+# ============================
 
+txt_file = MANUAL_FOLDER / "manual.txt"
 
-    print(
-        "Manual found:",
-        MANUAL_FILE
-    )
+if txt_file.exists():
 
+    print("Loading manual.txt")
 
-    text = MANUAL_FILE.read_text(
+    text = txt_file.read_text(
         encoding="utf-8"
     )
 
-
-
-    documents = split_alarm_records(
-        text
+    documents.extend(
+        split_alarm_records(text)
     )
 
 
+# ============================
+# Load PDF manual
+# ============================
+
+pdf_files = list(
+    MANUAL_FOLDER.glob("*.pdf")
+)
+
+
+for pdf in pdf_files:
+
     print(
+        "Loading PDF:",
+        pdf.name
+    )
+
+    loader = PyPDFLoader(
+        str(pdf)
+    )
+
+    pdf_documents = loader.load()
+
+
+    documents.extend(
+        pdf_documents
+    )
+
+
+
+print(
+    "Total documents:",
+    len(documents)
+)
+
+
+print(
         "Alarm records found:",
         len(documents)
     )
 
 
 
-    embedding = HuggingFaceEmbeddings(
+embedding = HuggingFaceEmbeddings(
 
         model_name=
         "sentence-transformers/all-MiniLM-L6-v2",
@@ -194,7 +226,7 @@ def main():
 
 
 
-    if DATABASE_FOLDER.exists():
+if DATABASE_FOLDER.exists():
 
         print(
             "Removing old database..."
@@ -206,12 +238,12 @@ def main():
 
 
 
-    print(
+print(
         "Creating database..."
     )
 
 
-    Chroma.from_documents(
+Chroma.from_documents(
 
         documents=documents,
 
@@ -226,7 +258,7 @@ def main():
     )
 
 
-    print(
+print(
         "Database created successfully"
     )
 
