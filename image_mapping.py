@@ -1,9 +1,20 @@
 IMAGE_MAP = {
 
 
-# =========================
+# ===========
 # MAINTENANCE D
 # =========================
+
+"barrel":
+[
+    "screw and barrel.jpeg"
+],
+
+    "screw":
+    [
+        "S10_screw_tip.jpeg",
+        "screw and barrel.jpeg"
+],
 
 "mechanical safety":
 [
@@ -52,7 +63,11 @@ IMAGE_MAP = {
 "D10_oil_level.jpeg"
 ],
 
-
+"cooler":
+[
+"main_D.jpeg",
+"D9_cooler_servo_motor.jpeg"
+],
 
 
 # =========================
@@ -109,12 +124,17 @@ IMAGE_MAP = {
 ],
 
 
-"servo":
+"servo motor":
 [
-"main_S.jpeg",
-"S6_tank_cooler.jpeg"
-]
+"main_s.jpeg",
+"S3_hydraulic_motor.jpeg"
+],
 
+"hydraulic motor":
+[
+"main_s.jpeg",
+"S3_hydraulic_motor.jpeg"
+]
 
 }
 
