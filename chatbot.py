@@ -2,15 +2,18 @@ import streamlit as st
 from pathlib import Path
 import re
 
+
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+
 
 from image_mapping import IMAGE_MAP
 
 
-# ==========================================
+
+# ==================================================
 # PATH
-# ==========================================
+# ==================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -20,16 +23,18 @@ IMAGE_FOLDER = BASE_DIR / "images"
 
 
 
-# ==========================================
+# ==================================================
 # LOAD DATABASE
-# ==========================================
+# ==================================================
 
 @st.cache_resource
 def load_database():
 
+
     embedding = HuggingFaceEmbeddings(
 
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_name=
+        "sentence-transformers/all-MiniLM-L6-v2",
 
         encode_kwargs={
             "normalize_embeddings": True
@@ -57,83 +62,147 @@ db = load_database()
 
 
 
-# ==========================================
-# PDF SIMPLE FORMATTER
-# ==========================================
+# ==================================================
+# CLEAN PDF OUTPUT
+# ==================================================
+
+def clean_pdf(text):
+
+
+    remove_patterns = [
+
+        r"Injection Molding Machine Chapter.*",
+
+        r"Chapter \d+",
+
+        r"V\d+\.\d+",
+
+        r"Page \d+",
+
+        r"Zhafir",
+
+        r"Plastics Machinery",
+
+    ]
+
+
+    for pattern in remove_patterns:
+
+        text = re.sub(
+            pattern,
+            "",
+            text,
+            flags=re.I
+        )
+
+
+    text = text.replace(
+        "\n",
+        " "
+    )
+
+
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    )
+
+
+    return text.strip()
+
+
+
+# ==================================================
+# FORMAT PDF ANSWER
+# ==================================================
 
 def simplify_pdf(text, question):
 
 
-    text = text.replace("\n", " ")
+    text = clean_pdf(text)
 
 
     question = question.lower()
 
 
-    # Maintenance question
+
+    # Maintenance
+
     if (
         "maintenance" in question
         or
         "check" in question
         or
-        "daily" in question
+        "operation" in question
     ):
 
 
-        return """
-### Maintenance Checklist
+        return f"""
 
-• Check machine condition before operation.
+## Maintenance Information
 
-• Check all required machine parts according to the maintenance checklist.
 
-• Check hydraulic system condition and abnormal conditions.
+**Purpose**
 
-• Check safety devices before starting operation.
+The machine must be checked before operation to ensure safe operation.
 
-• Ensure machine operation is safe before production.
+
+**Required Check**
+
+• Check machine condition before starting.
+
+• Check all items listed in the maintenance checklist.
+
+• Check safety devices and abnormal conditions.
+
+• Ensure the machine is ready before production.
+
+
 """
 
 
-    # General PDF answer
 
     sentences = re.split(
-        r'\.',
+        r"\.",
         text
     )
 
 
-    useful = []
+    useful=[]
 
 
     for sentence in sentences:
 
+
         sentence = sentence.strip()
 
 
-        if len(sentence) < 25:
+        if len(sentence)<40:
+
             continue
 
 
-        remove_words = [
+        useless_words=[
+
+            "version",
 
             "chapter",
-            "version",
-            "v3.0",
-            "screen",
+
             "page",
-            "zhafir",
-            "plastics machinery"
+
+            "manual"
 
         ]
 
 
         if any(
-            word in sentence.lower()
-            for word in remove_words
+            x in sentence.lower()
+            for x in useless_words
         ):
 
             continue
+
 
 
         useful.append(sentence)
@@ -145,15 +214,26 @@ def simplify_pdf(text, question):
         return "No accurate information found."
 
 
-    answer = "### Information\n\n"
+
+    answer="""
+
+## Information Found
+
+
+"""
 
 
     for item in useful[:5]:
 
+
         answer += (
+
             "• "
-            + item
-            + ".\n\n"
+            +
+            item
+            +
+            ".\n\n"
+
         )
 
 
@@ -163,9 +243,9 @@ def simplify_pdf(text, question):
 
 
 
-# ==========================================
-# SEARCH FUNCTION
-# ==========================================
+# ==================================================
+# SEARCH ENGINE
+# ==================================================
 
 def search_manual(question):
 
@@ -179,44 +259,62 @@ def search_manual(question):
     )
 
 
+
     if not results:
 
         return "No accurate information found."
 
 
 
-    # ======================================
-    # PRIORITY 1
-    # Alarm from manual.txt
-    # ======================================
+    # DEBUG
 
-    for doc, score in results:
+    print("\nQUESTION:",
+          question)
+
+
+    for doc,score in results:
+
+        print(
+            "\nSCORE:",
+            score
+        )
+
+        print(
+            doc.page_content[:200]
+        )
+
+
+
+    # ==================================
+    # ALARM FIRST
+    # ==================================
+
+    for doc,score in results:
 
 
         content = doc.page_content
 
 
         if (
+
             "Alarm Name:" in content
+
             and
+
             "Solution:" in content
+
         ):
 
             return content
 
 
 
-    # ======================================
-    # PRIORITY 2
-    # PDF manual
-    # ======================================
 
-    doc, score = results[0]
+    # ==================================
+    # PDF
+    # ==================================
 
-
-    if score > 1.0:
-
-        return "No accurate information found."
+    doc,score = results[0]
 
 
     return simplify_pdf(
@@ -231,42 +329,43 @@ def search_manual(question):
 
 
 
-# ==========================================
-# FORMAT ALARM ANSWER ONLY
-# ==========================================
+# ==================================================
+# ALARM FORMAT
+# ==================================================
 
 def format_alarm(text):
 
 
-    lines = text.split("\n")
+    lines=text.split("\n")
 
 
-    output = []
+    output=[]
 
 
     for line in lines:
 
 
-        line = line.strip()
+        line=line.strip()
 
 
-        if line == "":
+        if line=="":
+
             continue
 
 
-        if re.match(
-            r"^No\.?\s*:",
-            line,
-            re.I
+
+        if line.lower().startswith(
+            "no:"
         ):
+
             continue
+
 
 
         output.append(
-
-            "• " + line
-
+            line
         )
+
 
 
     return "\n\n".join(output)
@@ -275,23 +374,24 @@ def format_alarm(text):
 
 
 
-# ==========================================
-# IMAGE FINDER
-# ==========================================
+# ==================================================
+# IMAGE SEARCH
+# ==================================================
 
 def find_image(answer):
 
 
-    images = []
+    images=[]
 
 
-    answer_lower = answer.lower()
+    answer=answer.lower()
 
 
-    for keyword, image_list in IMAGE_MAP.items():
+
+    for keyword,image_list in IMAGE_MAP.items():
 
 
-        if keyword.lower() in answer_lower:
+        if keyword.lower() in answer:
 
 
             for img in image_list:
@@ -309,22 +409,21 @@ def find_image(answer):
 
 
 
-# ==========================================
+# ==================================================
 # STREAMLIT UI
-# ==========================================
+# ==================================================
 
 st.set_page_config(
 
-    page_title="Machine Manual Assistant"
+    page_title=
+    "Machine Manual Assistant"
 
 )
 
 
 
 st.title(
-
     "Machine#1 Manual Assistant"
-
 )
 
 
@@ -334,8 +433,11 @@ language = st.selectbox(
     "Select Language:",
 
     [
+
         "English",
+
         "Malay"
+
     ]
 
 )
@@ -353,7 +455,7 @@ question = st.text_input(
 if st.button("Search"):
 
 
-    if question.strip() == "":
+    if question.strip()=="":
 
 
         st.warning(
@@ -364,7 +466,10 @@ if st.button("Search"):
     else:
 
 
-        answer = search_manual(question)
+        answer = search_manual(
+            question
+        )
+
 
 
         st.subheader(
@@ -372,25 +477,27 @@ if st.button("Search"):
         )
 
 
-        # only format alarm
+
         if "Alarm Name:" in answer:
 
-            answer = format_alarm(answer)
+
+            answer=format_alarm(
+                answer
+            )
 
 
-        st.markdown(answer)
+        st.markdown(
+            answer
+        )
 
 
 
-        # =================================
-        # IMAGE DISPLAY
-        # =================================
+        images=find_image(
+            answer
+        )
 
 
-        image_list = find_image(answer)
-
-
-        if image_list:
+        if images:
 
 
             st.subheader(
@@ -398,25 +505,19 @@ if st.button("Search"):
             )
 
 
-            for img in image_list:
+            for img in images:
 
 
-                image_path = IMAGE_FOLDER / img
+                path=IMAGE_FOLDER/img
 
 
-                if image_path.exists():
+                if path.exists():
 
 
                     st.image(
 
-                        str(image_path),
+                        str(path),
 
                         use_container_width=True
 
                     )
-
-
-        else:
-
-
-            pass
