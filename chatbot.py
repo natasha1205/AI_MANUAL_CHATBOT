@@ -8,7 +8,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from image_mapping import IMAGE_MAP
 
 
-
 # ==========================================
 # PATH
 # ==========================================
@@ -30,8 +29,7 @@ def load_database():
 
     embedding = HuggingFaceEmbeddings(
 
-        model_name=
-        "sentence-transformers/all-MiniLM-L6-v2",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
 
         encode_kwargs={
             "normalize_embeddings": True
@@ -44,9 +42,7 @@ def load_database():
 
         collection_name="machine_manual",
 
-        persist_directory=str(
-            DATABASE_FOLDER
-        ),
+        persist_directory=str(DATABASE_FOLDER),
 
         embedding_function=embedding
 
@@ -58,6 +54,112 @@ def load_database():
 
 
 db = load_database()
+
+
+
+# ==========================================
+# PDF SIMPLE FORMATTER
+# ==========================================
+
+def simplify_pdf(text, question):
+
+
+    text = text.replace("\n", " ")
+
+
+    question = question.lower()
+
+
+    # Maintenance question
+    if (
+        "maintenance" in question
+        or
+        "check" in question
+        or
+        "daily" in question
+    ):
+
+
+        return """
+### Maintenance Checklist
+
+• Check machine condition before operation.
+
+• Check all required machine parts according to the maintenance checklist.
+
+• Check hydraulic system condition and abnormal conditions.
+
+• Check safety devices before starting operation.
+
+• Ensure machine operation is safe before production.
+"""
+
+
+    # General PDF answer
+
+    sentences = re.split(
+        r'\.',
+        text
+    )
+
+
+    useful = []
+
+
+    for sentence in sentences:
+
+        sentence = sentence.strip()
+
+
+        if len(sentence) < 25:
+            continue
+
+
+        remove_words = [
+
+            "chapter",
+            "version",
+            "v3.0",
+            "screen",
+            "page",
+            "zhafir",
+            "plastics machinery"
+
+        ]
+
+
+        if any(
+            word in sentence.lower()
+            for word in remove_words
+        ):
+
+            continue
+
+
+        useful.append(sentence)
+
+
+
+    if not useful:
+
+        return "No accurate information found."
+
+
+    answer = "### Information\n\n"
+
+
+    for item in useful[:5]:
+
+        answer += (
+            "• "
+            + item
+            + ".\n\n"
+        )
+
+
+    return answer
+
+
 
 
 
@@ -83,10 +185,10 @@ def search_manual(question):
 
 
 
-    # ==============================
-    # PRIORITY 1:
-    # Search alarm records from manual.txt
-    # ==============================
+    # ======================================
+    # PRIORITY 1
+    # Alarm from manual.txt
+    # ======================================
 
     for doc, score in results:
 
@@ -104,31 +206,36 @@ def search_manual(question):
 
 
 
-    # ==============================
-    # PRIORITY 2:
-    # Use PDF only if no alarm record
-    # ==============================
+    # ======================================
+    # PRIORITY 2
+    # PDF manual
+    # ======================================
 
     doc, score = results[0]
 
-
-    # reject unrelated PDF
 
     if score > 1.0:
 
         return "No accurate information found."
 
 
-    return doc.page_content
+    return simplify_pdf(
+
+        doc.page_content,
+
+        question
+
+    )
+
 
 
 
 
 # ==========================================
-# FORMAT ANSWER
+# FORMAT ALARM ANSWER ONLY
 # ==========================================
 
-def format_answer(text):
+def format_alarm(text):
 
 
     lines = text.split("\n")
@@ -147,37 +254,12 @@ def format_answer(text):
             continue
 
 
-
-        # Remove No:5001
-        # Remove No.:5001
         if re.match(
-
-            r"^No\.?\s*:\s*\d+",
-
+            r"^No\.?\s*:",
             line,
-
-            re.IGNORECASE
-
+            re.I
         ):
-
             continue
-
-
-
-        # Remove page number
-
-        if re.match(
-
-            r"^Page\s*\d+",
-
-            line,
-
-            re.IGNORECASE
-
-        ):
-
-            continue
-
 
 
         output.append(
@@ -187,8 +269,8 @@ def format_answer(text):
         )
 
 
-
     return "\n\n".join(output)
+
 
 
 
@@ -204,7 +286,6 @@ def find_image(answer):
 
 
     answer_lower = answer.lower()
-
 
 
     for keyword, image_list in IMAGE_MAP.items():
@@ -227,14 +308,14 @@ def find_image(answer):
 
 
 
+
 # ==========================================
 # STREAMLIT UI
 # ==========================================
 
 st.set_page_config(
 
-    page_title=
-    "Machine Manual Assistant"
+    page_title="Machine Manual Assistant"
 
 )
 
@@ -276,76 +357,51 @@ if st.button("Search"):
 
 
         st.warning(
-
             "Please enter question"
-
         )
 
 
     else:
 
 
-        answer = search_manual(
-
-            question
-
-        )
+        answer = search_manual(question)
 
 
         st.subheader(
-
             "Answer:"
-
         )
 
 
-        clean_answer = format_answer(
+        # only format alarm
+        if "Alarm Name:" in answer:
 
-            answer
-
-        )
+            answer = format_alarm(answer)
 
 
-        st.markdown(
-
-            clean_answer
-
-        )
+        st.markdown(answer)
 
 
 
-        # ==========================
+        # =================================
         # IMAGE DISPLAY
-        # ==========================
+        # =================================
 
 
-        image_list = find_image(
-
-            answer
-
-        )
+        image_list = find_image(answer)
 
 
         if image_list:
 
 
             st.subheader(
-
                 "Visual Guide"
-
             )
 
 
             for img in image_list:
 
 
-                image_path = (
-
-                    IMAGE_FOLDER /
-
-                    img
-
-                )
+                image_path = IMAGE_FOLDER / img
 
 
                 if image_path.exists():
@@ -360,12 +416,7 @@ if st.button("Search"):
                     )
 
 
-
         else:
 
 
-            st.info(
-
-                "No visual guide available"
-
-            )
+            pass
