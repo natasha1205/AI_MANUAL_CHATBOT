@@ -9,9 +9,9 @@ from image_mapping import IMAGE_MAP
 
 
 
-# ==================================================
+# ==========================================
 # PATH
-# ==================================================
+# ==========================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -21,12 +21,13 @@ IMAGE_FOLDER = BASE_DIR / "images"
 
 
 
-# ==================================================
+# ==========================================
 # LOAD DATABASE
-# ==================================================
+# ==========================================
 
 @st.cache_resource
 def load_database():
+
 
     embedding = HuggingFaceEmbeddings(
 
@@ -58,60 +59,47 @@ db = load_database()
 
 
 
-# ==================================================
-# PDF SIMPLE FORMATTER
-# ==================================================
+# ==========================================
+# FORMAT PDF ANSWER
+# ==========================================
 
-def simplify_pdf(text, question):
-
-
-    text = text.replace("\n", " ")
+def clean_pdf_answer(text, question):
 
 
-    question = question.lower()
-
-
-
-    if (
-        "maintenance" in question
-        or
-        "check" in question
-        or
-        "daily" in question
-        or
-        "operation" in question
-    ):
-
-
-        return """
-
-## Maintenance Checklist
-
-Purpose:
-To ensure the machine is safe and ready before operation.
-
-
-Checklist:
-
-• Check machine condition before starting.
-
-• Check machine parts according to the maintenance checklist.
-
-• Check safety devices and abnormal conditions.
-
-• Ensure safe machine operation before production.
-
-"""
-
+    question_words = question.lower().split()
 
 
     sentences = re.split(
-        r"\.",
+
+        r'[\n.]',
+
         text
+
     )
 
 
     useful = []
+
+
+
+    remove_words = [
+
+        "chapter",
+
+        "version",
+
+        "zhafir",
+
+        "plastics machinery",
+
+        "page",
+
+        "manual",
+
+        "contents"
+
+    ]
+
 
 
     for sentence in sentences:
@@ -126,24 +114,15 @@ Checklist:
 
 
 
-        remove_words = [
+        lower = sentence.lower()
 
-            "chapter",
 
-            "version",
 
-            "page",
-
-            "zhafir",
-
-            "plastics machinery"
-
-        ]
-
+        # remove useless PDF heading
 
         if any(
 
-            word in sentence.lower()
+            word in lower
 
             for word in remove_words
 
@@ -153,35 +132,58 @@ Checklist:
 
 
 
-        useful.append(sentence)
+        # check relevance
+
+        score = 0
+
+
+        for word in question_words:
+
+
+            if len(word) > 3 and word in lower:
+
+                score += 1
+
+
+
+        if score > 0:
+
+            useful.append(sentence)
 
 
 
     if not useful:
 
-        return "No accurate information found."
+
+        return "No related information found."
 
 
 
     answer = """
 
-## Information
+## Related Information
 
 """
 
 
-    for item in useful[:5]:
+
+    for item in useful[:6]:
 
 
         answer += (
 
             "• "
 
-            + item
+            +
 
-            + ".\n\n"
+            item
+
+            +
+
+            "\n\n"
 
         )
+
 
 
     return answer
@@ -189,10 +191,9 @@ Checklist:
 
 
 
-
-# ==================================================
-# SEARCH FUNCTION
-# ==================================================
+# ==========================================
+# SEARCH MANUAL
+# ==========================================
 
 def search_manual(question):
 
@@ -201,26 +202,28 @@ def search_manual(question):
 
         question,
 
-        k=5
+        k=10
 
     )
 
 
+
     if not results:
+
 
         return "No accurate information found."
 
 
 
-    # =====================================
-    # PRIORITY 1
-    # ALARM DATABASE
-    # =====================================
+    # ======================================
+    # ALARM SEARCH FIRST
+    # ======================================
 
-    for doc, score in results:
+    for doc,score in results:
 
 
         content = doc.page_content
+
 
 
         if (
@@ -234,23 +237,66 @@ def search_manual(question):
         ):
 
 
-            return content
+            return format_alarm(content)
 
 
 
+    # ======================================
+    # PDF SEARCH
+    # ======================================
 
 
-    # =====================================
-    # PRIORITY 2
-    # PDF
-    # =====================================
-
-    doc, score = results[0]
+    matched_text = ""
 
 
-    return simplify_pdf(
 
-        doc.page_content,
+    for doc,score in results:
+
+
+        text = doc.page_content
+
+
+        question_word = question.lower().split()
+
+
+        match = 0
+
+
+
+        for word in question_word:
+
+
+            if len(word)>3 and word in text.lower():
+
+                match += 1
+
+
+
+        if match >= 1:
+
+
+            matched_text += (
+
+                text
+
+                +
+
+                "\n"
+
+            )
+
+
+
+    if matched_text == "":
+
+
+        return "No related information found."
+
+
+
+    return clean_pdf_answer(
+
+        matched_text,
 
         question
 
@@ -259,10 +305,9 @@ def search_manual(question):
 
 
 
-
-# ==================================================
-# ALARM FORMAT
-# ==================================================
+# ==========================================
+# FORMAT ALARM OUTPUT
+# ==========================================
 
 def format_alarm(text):
 
@@ -270,25 +315,28 @@ def format_alarm(text):
     lines = text.split("\n")
 
 
-    output = []
+    output = ""
+
 
 
     for line in lines:
 
 
-        line = line.strip()
+        line=line.strip()
 
 
-        if line == "":
+
+        if line=="":
 
             continue
 
 
 
-        # Remove No information
+        # remove No:xxx
+
         if re.match(
 
-            r"^No\.?\s*[:.]?\s*\d+[-]?\d*",
+            r"^No\.?\s*:?\s*\d+",
 
             line,
 
@@ -300,40 +348,48 @@ def format_alarm(text):
 
 
 
-        output.append(line)
+        output += (
+
+            line
+
+            +
+
+            "\n\n"
+
+        )
 
 
 
-    return "\n\n".join(output)
+    return output
 
 
 
 
-
-# ==================================================
+# ==========================================
 # IMAGE FINDER
-# ==================================================
+# ==========================================
 
-def find_image(answer):
-
-
-    images = []
+def find_image(question):
 
 
-    answer_lower = answer.lower()
+    images=[]
+
+
+    question = question.lower()
 
 
 
-    for keyword, image_list in IMAGE_MAP.items():
+    for keyword,image_list in IMAGE_MAP.items():
 
 
-        if keyword.lower() in answer_lower:
+        if keyword.lower() in question:
 
 
             for img in image_list:
 
 
                 if img not in images:
+
 
                     images.append(img)
 
@@ -344,10 +400,9 @@ def find_image(answer):
 
 
 
-
-# ==================================================
+# ==========================================
 # STREAMLIT UI
-# ==================================================
+# ==========================================
 
 st.set_page_config(
 
@@ -392,7 +447,7 @@ question = st.text_input(
 if st.button("Search"):
 
 
-    if question.strip() == "":
+    if question.strip()=="":
 
 
         st.warning(
@@ -417,24 +472,17 @@ if st.button("Search"):
 
 
 
-        # Only format alarm output
+        st.markdown(
 
-        if "Alarm Name:" in answer:
+            answer
 
-
-            answer = format_alarm(answer)
-
-
-
-        st.markdown(answer)
+        )
 
 
 
-        # =================================
-        # IMAGE DISPLAY
-        # =================================
+        # image display
 
-        image_list = find_image(answer)
+        image_list = find_image(question)
 
 
 
@@ -452,6 +500,7 @@ if st.button("Search"):
 
 
                 image_path = IMAGE_FOLDER / img
+
 
 
                 if image_path.exists():
