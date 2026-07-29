@@ -4,8 +4,7 @@ import re
 
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-
-from image_mapping import IMAGE_MAP
+from image_mapping import IMAGE_MAP 
 
 
 
