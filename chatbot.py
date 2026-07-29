@@ -2,10 +2,8 @@ import streamlit as st
 from pathlib import Path
 import re
 
-
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-
 
 from image_mapping import IMAGE_MAP
 
@@ -30,11 +28,9 @@ IMAGE_FOLDER = BASE_DIR / "images"
 @st.cache_resource
 def load_database():
 
-
     embedding = HuggingFaceEmbeddings(
 
-        model_name=
-        "sentence-transformers/all-MiniLM-L6-v2",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
 
         encode_kwargs={
             "normalize_embeddings": True
@@ -63,101 +59,47 @@ db = load_database()
 
 
 # ==================================================
-# CLEAN PDF OUTPUT
-# ==================================================
-
-def clean_pdf(text):
-
-
-    remove_patterns = [
-
-        r"Injection Molding Machine Chapter.*",
-
-        r"Chapter \d+",
-
-        r"V\d+\.\d+",
-
-        r"Page \d+",
-
-        r"Zhafir",
-
-        r"Plastics Machinery",
-
-    ]
-
-
-    for pattern in remove_patterns:
-
-        text = re.sub(
-            pattern,
-            "",
-            text,
-            flags=re.I
-        )
-
-
-    text = text.replace(
-        "\n",
-        " "
-    )
-
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
-
-
-    return text.strip()
-
-
-
-# ==================================================
-# FORMAT PDF ANSWER
+# PDF SIMPLE FORMATTER
 # ==================================================
 
 def simplify_pdf(text, question):
 
 
-    text = clean_pdf(text)
+    text = text.replace("\n", " ")
 
 
     question = question.lower()
 
 
 
-    # Maintenance
-
     if (
         "maintenance" in question
         or
         "check" in question
         or
+        "daily" in question
+        or
         "operation" in question
     ):
 
 
-        return f"""
+        return """
 
-## Maintenance Information
+## Maintenance Checklist
 
-
-**Purpose**
-
-The machine must be checked before operation to ensure safe operation.
+Purpose:
+To ensure the machine is safe and ready before operation.
 
 
-**Required Check**
+Checklist:
 
 • Check machine condition before starting.
 
-• Check all items listed in the maintenance checklist.
+• Check machine parts according to the maintenance checklist.
 
 • Check safety devices and abnormal conditions.
 
-• Ensure the machine is ready before production.
-
+• Ensure safe machine operation before production.
 
 """
 
@@ -169,7 +111,7 @@ The machine must be checked before operation to ensure safe operation.
     )
 
 
-    useful=[]
+    useful = []
 
 
     for sentence in sentences:
@@ -178,27 +120,33 @@ The machine must be checked before operation to ensure safe operation.
         sentence = sentence.strip()
 
 
-        if len(sentence)<40:
+        if len(sentence) < 40:
 
             continue
 
 
-        useless_words=[
 
-            "version",
+        remove_words = [
 
             "chapter",
 
+            "version",
+
             "page",
 
-            "manual"
+            "zhafir",
+
+            "plastics machinery"
 
         ]
 
 
         if any(
-            x in sentence.lower()
-            for x in useless_words
+
+            word in sentence.lower()
+
+            for word in remove_words
+
         ):
 
             continue
@@ -215,10 +163,9 @@ The machine must be checked before operation to ensure safe operation.
 
 
 
-    answer="""
+    answer = """
 
-## Information Found
-
+## Information
 
 """
 
@@ -229,10 +176,10 @@ The machine must be checked before operation to ensure safe operation.
         answer += (
 
             "• "
-            +
-            item
-            +
-            ".\n\n"
+
+            + item
+
+            + ".\n\n"
 
         )
 
@@ -244,7 +191,7 @@ The machine must be checked before operation to ensure safe operation.
 
 
 # ==================================================
-# SEARCH ENGINE
+# SEARCH FUNCTION
 # ==================================================
 
 def search_manual(question):
@@ -259,37 +206,18 @@ def search_manual(question):
     )
 
 
-
     if not results:
 
         return "No accurate information found."
 
 
 
-    # DEBUG
+    # =====================================
+    # PRIORITY 1
+    # ALARM DATABASE
+    # =====================================
 
-    print("\nQUESTION:",
-          question)
-
-
-    for doc,score in results:
-
-        print(
-            "\nSCORE:",
-            score
-        )
-
-        print(
-            doc.page_content[:200]
-        )
-
-
-
-    # ==================================
-    # ALARM FIRST
-    # ==================================
-
-    for doc,score in results:
+    for doc, score in results:
 
 
         content = doc.page_content
@@ -305,16 +233,19 @@ def search_manual(question):
 
         ):
 
+
             return content
 
 
 
 
-    # ==================================
-    # PDF
-    # ==================================
 
-    doc,score = results[0]
+    # =====================================
+    # PRIORITY 2
+    # PDF
+    # =====================================
+
+    doc, score = results[0]
 
 
     return simplify_pdf(
@@ -336,35 +267,40 @@ def search_manual(question):
 def format_alarm(text):
 
 
-    lines=text.split("\n")
+    lines = text.split("\n")
 
 
-    output=[]
+    output = []
 
 
     for line in lines:
 
 
-        line=line.strip()
+        line = line.strip()
 
 
-        if line=="":
+        if line == "":
 
             continue
 
 
 
-        if line.lower().startswith(
-            "no:"
+        # Remove No information
+        if re.match(
+
+            r"^No\.?\s*[:.]?\s*\d+[-]?\d*",
+
+            line,
+
+            re.I
+
         ):
 
             continue
 
 
 
-        output.append(
-            line
-        )
+        output.append(line)
 
 
 
@@ -375,23 +311,23 @@ def format_alarm(text):
 
 
 # ==================================================
-# IMAGE SEARCH
+# IMAGE FINDER
 # ==================================================
 
 def find_image(answer):
 
 
-    images=[]
+    images = []
 
 
-    answer=answer.lower()
+    answer_lower = answer.lower()
 
 
 
-    for keyword,image_list in IMAGE_MAP.items():
+    for keyword, image_list in IMAGE_MAP.items():
 
 
-        if keyword.lower() in answer:
+        if keyword.lower() in answer_lower:
 
 
             for img in image_list:
@@ -415,15 +351,16 @@ def find_image(answer):
 
 st.set_page_config(
 
-    page_title=
-    "Machine Manual Assistant"
+    page_title="Machine Manual Assistant"
 
 )
 
 
 
 st.title(
+
     "Machine#1 Manual Assistant"
+
 )
 
 
@@ -455,68 +392,74 @@ question = st.text_input(
 if st.button("Search"):
 
 
-    if question.strip()=="":
+    if question.strip() == "":
 
 
         st.warning(
+
             "Please enter question"
+
         )
 
 
     else:
 
 
-        answer = search_manual(
-            question
-        )
+        answer = search_manual(question)
 
 
 
         st.subheader(
+
             "Answer:"
+
         )
 
 
+
+        # Only format alarm output
 
         if "Alarm Name:" in answer:
 
 
-            answer=format_alarm(
-                answer
-            )
-
-
-        st.markdown(
-            answer
-        )
+            answer = format_alarm(answer)
 
 
 
-        images=find_image(
-            answer
-        )
+        st.markdown(answer)
 
 
-        if images:
+
+        # =================================
+        # IMAGE DISPLAY
+        # =================================
+
+        image_list = find_image(answer)
+
+
+
+        if image_list:
 
 
             st.subheader(
+
                 "Visual Guide"
+
             )
 
 
-            for img in images:
+            for img in image_list:
 
 
-                path=IMAGE_FOLDER/img
+                image_path = IMAGE_FOLDER / img
 
 
-                if path.exists():
+                if image_path.exists():
 
 
                     st.image(
 
-                        str(path),
+                        str(image_path),
 
                         use_container_width=True
 
