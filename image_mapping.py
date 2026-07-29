@@ -57,8 +57,7 @@ IMAGE_MAP = {
     "servo motor": [
         "main_S.jpeg",
         "S3_hydraulic_motor.jpeg",
-        "main_D.jpeg",
-        "D9_cooler_servo_motor.jpeg"
+        "main_D.jpeg"
     ],
 
     "oil cooler": [
