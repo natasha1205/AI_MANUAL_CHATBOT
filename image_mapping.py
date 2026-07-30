@@ -7,7 +7,8 @@ IMAGE_MAP = {
     "safety gate":
     [
         "main_D.jpeg",
-        "D1_safety_gate.jpeg"
+        "D1_safety_gate.jpeg",
+        "D7_controller_setting.jpeg"
     ],
 
 
@@ -134,8 +135,8 @@ IMAGE_MAP = {
     "barrel":
     [
         "main_S.jpeg",
-        "D7_controller.jpeg",
-        "screw and barrel.jpeg"
+        "D6_controller.jpeg",
+        "screw and barrel.jpeg" 
     ]
 
 }
