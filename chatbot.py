@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import re
 import chromadb
-import requests
 
 from image_mapping import get_related_images
 
@@ -31,7 +30,7 @@ IMAGE_FOLDER = os.path.join(
 
 
 # ======================================
-# CHROMA DATABASE
+# LOAD CHROMA DATABASE
 # ======================================
 
 client = chromadb.PersistentClient(
@@ -42,6 +41,7 @@ client = chromadb.PersistentClient(
 collection = client.get_collection(
     name="manual_library"
 )
+
 
 
 
@@ -58,10 +58,11 @@ def search_manual(question):
             question
         ],
 
-        n_results=5,
+        n_results=1,
 
         include=[
-            "documents"
+            "documents",
+            "metadatas"
         ]
 
     )
@@ -73,12 +74,20 @@ def search_manual(question):
     )
 
 
-    if documents:
+    metadatas = result.get(
+        "metadatas",
+        []
+    )
 
-        return documents[0]
+
+    if documents and documents[0]:
+
+        return documents[0], metadatas[0]
 
 
-    return []
+    return [], []
+
+
 
 
 
@@ -90,16 +99,19 @@ def clean_text(text):
 
 
     text = re.sub(
-        r"No\.\s*:\s*\S+",
-        "",
+
+        r"\n{2,}",
+
+        "\n",
+
         text
+
     )
 
 
-    text = re.sub(
-        r"\n+",
-        "\n",
-        text
+    text = text.replace(
+        "\t",
+        " "
     )
 
 
@@ -107,135 +119,223 @@ def clean_text(text):
 
 
 
+
+
 # ======================================
-# OLLAMA AI ANSWER
+# EXTRACT ALARM INFORMATION
 # ======================================
 
-def ask_ai(context, question, language):
+def extract_alarm(text):
+
+
+    alarm = ""
+    description = ""
+    cause = ""
+    screen = ""
+    machine = ""
+    solution = ""
+
+
+
+    # Remove page number
+
+    text = re.sub(
+
+        r"No\.\s*:\s*\d+",
+
+        "",
+
+        text
+
+    )
+
+
+
+    # Alarm Name
+
+    match = re.search(
+
+        r"Alarm Name[:\s]*(.*?)(?=Description|$)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        alarm = match.group(1).strip()
+
+
+
+
+    # Description
+
+    match = re.search(
+
+        r"Description[:\s]*(.*?)(?=Cause|$)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        description = match.group(1).strip()
+
+
+
+
+    # Cause
+
+    match = re.search(
+
+        r"Cause[:\s]*(.*?)(?=Screen Display|Alarm Light|$)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        cause = match.group(1).strip()
+
+
+
+
+    # Screen Display
+
+    match = re.search(
+
+        r"(?:Screen Display|Alarm Light)[:\s]*(.*?)(?=Machine State|$)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        screen = match.group(1).strip()
+
+
+
+
+    # Machine State
+
+    match = re.search(
+
+        r"Machine State(?: After Alarm)?[:\s]*(.*?)(?=Solution|$)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        machine = match.group(1).strip()
+
+
+
+
+    # Solution
+
+    match = re.search(
+
+        r"Solution[:\s]*(.*)",
+
+        text,
+
+        re.I | re.S
+
+    )
+
+
+    if match:
+
+        solution = match.group(1).strip()
+
+
+
+
+    return {
+
+        "alarm":alarm,
+
+        "description":description,
+
+        "cause":cause,
+
+        "screen":screen,
+
+        "machine":machine,
+
+        "solution":solution
+
+    }
+
+
+
+
+
+def format_answer(documents, language):
+
+    text = "\n".join(documents)
+
+    text = clean_text(text)
+
+    data = extract_alarm(text)
 
 
     if language == "Malay":
 
+        answer = f"""
+Nama Alarm: {data["alarm"]}
 
-        instruction = """
+Penerangan: {data["description"]}
 
-Jawab dalam Bahasa Melayu sahaja.
+Punca: {data["cause"]}
 
-Gunakan maklumat manual dan PDF sahaja.
+Paparan Skrin: {data["screen"]}
 
-Tukar ayat teknikal kepada ayat mudah yang operator boleh faham.
+Keadaan Mesin: {data["machine"]}
 
-Jangan tambah maklumat luar.
-
-Format jawapan:
-
-
-Nama Alarm:
-
-Penerangan:
-
-Punca:
-
-Paparan Skrin:
-
-Keadaan Mesin:
-
-Penyelesaian:
-
-
+Penyelesaian: {data["solution"]}
 """
 
 
     else:
 
+        answer = f"""
+Alarm Name: {data["alarm"]}
 
-        instruction = """
+Description: {data["description"]}
 
-Answer in English only.
+Cause: {data["cause"]}
 
-Use only information from manual and PDF.
+Screen Display: {data["screen"]}
 
-Convert technical sentences into simple operator language.
+Machine State: {data["machine"]}
 
-Do not add outside information.
-
-
-Answer format:
-
-
-Alarm Name:
-
-Description:
-
-Cause:
-
-Screen Display:
-
-Machine State:
-
-Solution:
-
-
+Solution: {data["solution"]}
 """
 
 
+    return answer
 
-    prompt = f"""
-
-You are a Machine Manual Assistant.
-
-
-{instruction}
-
-
-Manual/PDF Information:
-
-
-{context}
-
-
-
-User Question:
-
-
-{question}
-
-
-"""
-
-
-
-    try:
-
-
-        response = requests.post(
-
-            "http://localhost:11434/api/generate",
-
-            json={
-
-                "model":"llama3.1",
-
-                "prompt":prompt,
-
-                "stream":False
-
-            }
-
-        )
-
-
-        result = response.json()
-
-
-        return result["response"]
-
-
-
-    except Exception as e:
-
-
-        return f"Ollama Error: {e}"
 
 
 
@@ -253,6 +353,7 @@ def display_images(question, answer):
     )
 
 
+
     if not images:
 
         return
@@ -263,7 +364,9 @@ def display_images(question, answer):
 
 
     st.subheader(
+
         "Related Image"
+
     )
 
 
@@ -271,7 +374,7 @@ def display_images(question, answer):
     for img in images:
 
 
-        img_path = os.path.join(
+        img_path=os.path.join(
 
             IMAGE_FOLDER,
 
@@ -293,8 +396,10 @@ def display_images(question, answer):
 
 
 
+
+
 # ======================================
-# STREAMLIT SETTINGS
+# STREAMLIT UI
 # ======================================
 
 st.set_page_config(
@@ -308,8 +413,11 @@ st.set_page_config(
 
 
 st.title(
+
     "Machine#1 Manual Assistant"
+
 )
+
 
 
 
@@ -337,14 +445,11 @@ question = st.text_input(
 
 
 
-# ======================================
-# SEARCH BUTTON
-# ======================================
 
 if st.button("Search"):
 
 
-    if question.strip() == "":
+    if question.strip()=="":
 
 
         st.warning(
@@ -357,7 +462,6 @@ if st.button("Search"):
     else:
 
 
-
         with st.spinner(
 
             "Searching manual..."
@@ -366,7 +470,7 @@ if st.button("Search"):
 
 
 
-            docs = search_manual(
+            docs, source = search_manual(
 
                 question
 
@@ -384,23 +488,14 @@ if st.button("Search"):
                 )
 
 
+
             else:
 
 
 
-                context = "\n\n".join(
+                answer = format_answer(
 
-                    docs
-
-                )
-
-
-
-                answer = ask_ai(
-
-                    context,
-
-                    question,
+                    docs,
 
                     language
 

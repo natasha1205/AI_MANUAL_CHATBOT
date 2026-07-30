@@ -81,6 +81,12 @@ IMAGE_MAP = {
         "S3_hydraulic_motor.jpeg"
     ],
 
+    "servo motor":
+    [
+        "main_S.jpeg",
+        "main_D.jpeg",
+        "S3_servo_motor.jpeg"
+    ],
 
     "nozzle":
     [
@@ -128,6 +134,7 @@ IMAGE_MAP = {
     "barrel":
     [
         "main_S.jpeg",
+        "S10_screw_tip.jpeg",
         "screw and barrel.jpeg"
     ]
 
