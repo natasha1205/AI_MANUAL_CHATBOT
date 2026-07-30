@@ -153,6 +153,10 @@ IMAGE_MAP = {
         "injection unit.jpeg"
     ],
 
+    "alarm":
+    [
+        "temperature.jpeg",
+    ],
 
     "barrel temperature":
     [
