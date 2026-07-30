@@ -43,7 +43,95 @@ collection = client.get_collection(
 )
 
 
+# ======================================
+# CHECK USER QUESTION
+# ======================================
 
+def validate_question(question):
+
+
+    question = question.lower().strip()
+
+
+    # General greetings / unrelated words
+
+    invalid_questions = [
+
+        "hello",
+        "hi",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "thanks",
+        "thank you",
+        "help",
+        "test"
+
+    ]
+
+
+    for word in invalid_questions:
+
+
+        if question == word:
+
+            return False
+
+
+
+    # Minimum length
+
+    if len(question.split()) < 3:
+
+        return False
+
+
+
+    # Machine related keywords
+
+    machine_keywords = [
+
+        "alarm",
+        "error",
+        "fault",
+        "machine",
+        "motor",
+        "sensor",
+        "temperature",
+        "pressure",
+        "hydraulic",
+        "servo",
+        "pump",
+        "valve",
+        "reset",
+        "replace",
+        "change",
+        "maintenance",
+        "problem",
+        "issue",
+        "screen",
+        "display",
+        "safety",
+        "gate",
+        "controller",
+        "barrel",
+        "mold"
+
+    ]
+
+
+
+    for keyword in machine_keywords:
+
+
+        if keyword in question:
+
+            return True
+
+
+
+    return False
 
 # ======================================
 # SEARCH MANUAL + PDF
@@ -453,78 +541,62 @@ if st.button("Search"):
 
 
         st.warning(
-
             "Please enter your question."
+        )
 
+
+    elif not validate_question(question):
+
+
+        st.warning(
+            "Please ask a more specific question related to the machine manual. Example: 'How to reset safety gate alarm?'"
         )
 
 
     else:
 
-
         with st.spinner(
-
-            "Searching manual..."
-
+            "Searching manual database..."
         ):
 
 
-
             docs, source = search_manual(
-
                 question
-
             )
-
 
 
             if not docs:
 
 
                 st.error(
-
                     "No related information found in manual."
-
                 )
-
 
 
             else:
 
 
-
                 answer = format_answer(
-
                     docs,
-
                     language
-
                 )
-
 
 
                 st.divider()
 
 
                 st.header(
-
                     "Answer"
-
                 )
 
 
                 st.markdown(
-
                     answer
-
                 )
-
 
 
                 display_images(
-
                     question,
-
                     answer
-
                 )
+
