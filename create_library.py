@@ -266,14 +266,9 @@ collection = client.create_collection(
 
 )
 
-
-
-
-
 # ======================================
 # INSERT DATA
 # ======================================
-
 
 print(
     "Creating vector database..."
@@ -328,14 +323,9 @@ for index, doc in enumerate(chunks):
 
     )
 
-
-
-
-
 print(
     "\nLibrary created successfully"
 )
-
 
 print(
     "Total stored:",

@@ -175,12 +175,6 @@ def search_manual(question):
 
     return [], []
 
-
-
-
-
-
-
 # ======================================
 # CLEAN TEXT
 # ======================================
@@ -208,9 +202,6 @@ def clean_text(text):
     return text.strip()
 
 
-
-
-
 # ======================================
 # EXTRACT ALARM INFORMATION
 # ======================================
@@ -227,7 +218,7 @@ def extract_alarm(text):
 
 
 
-    # Remove page number
+# Remove page number
 
     text = re.sub(
 
@@ -240,8 +231,7 @@ def extract_alarm(text):
     )
 
 
-
-    # Alarm Name
+# Alarm Name
 
     match = re.search(
 

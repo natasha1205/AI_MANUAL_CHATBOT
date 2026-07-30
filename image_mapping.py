@@ -10,12 +10,19 @@ IMAGE_MAP = {
         "D1_safety_gate.jpeg",
         "D7_controller_setting.jpeg"
     ],
+    "mechanical":
+    [
+        "main_D.jpeg",
+        "mechanical safety.jpeg",
+        "D1_safety_gate.jpeg"
+    ],
 
 
     "cover":
     [
         "main_D.jpeg",
-        "D2_cover.jpeg"
+        "D2_cover.jpeg",
+        "D8_barrel_cover.jpeg"
     ],
 
 
@@ -43,7 +50,8 @@ IMAGE_MAP = {
     "controller":
     [
         "main_D.jpeg",
-        "D6_controller.jpeg"
+        "D6_controller.jpeg",
+        "D7_controller_setting.jpeg"
     ],
 
 
@@ -79,6 +87,7 @@ IMAGE_MAP = {
     "hydraulic motor":
     [
         "main_S.jpeg",
+        "servo motor.jpeg",
         "S3_hydraulic_motor.jpeg"
     ],
 
@@ -86,7 +95,8 @@ IMAGE_MAP = {
     [
         "main_S.jpeg",
         "main_D.jpeg",
-        "S3_servo_motor.jpeg"
+        "servo motor.jpeg",
+        "S3_hydraulic_motor.jpeg"
     ],
 
     "nozzle":
@@ -131,11 +141,24 @@ IMAGE_MAP = {
         "screw and barrel.jpeg"
     ],
 
+    "temperature":
+    [
+        "main_D.jpeg",
+        "temperature.jpeg"
+    ],
+
+    "injection unit":
+    [
+        "main_D.jpeg",
+        "injection unit.jpeg"
+    ],
+
 
     "barrel":
     [
         "main_S.jpeg",
         "D6_controller.jpeg",
+        "injection unit.jpeg",
         "screw and barrel.jpeg" 
     ]
 
