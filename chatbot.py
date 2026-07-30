@@ -101,7 +101,7 @@ def validate_question(question):
         "temperature",
         "pressure",
         "hydraulic",
-        "servo",
+        "servo motor",
         "pump",
         "valve",
         "reset",
