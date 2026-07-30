@@ -125,7 +125,8 @@ def validate_question(question):
         "screw",
         "injection",
         "alarm light",
-        "filter removal",
+        "filter removal"
+
 
     ]
 
