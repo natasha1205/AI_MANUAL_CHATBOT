@@ -116,7 +116,16 @@ def validate_question(question):
         "gate",
         "controller",
         "barrel",
-        "mold"
+        "mold",
+        "filter",
+        "nozzle",
+        "hose",
+        "cooler",
+        "tank",
+        "screw",
+        "injection",
+        "alarm light",
+        "filter removal",
 
     ]
 

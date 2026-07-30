@@ -10,6 +10,7 @@ IMAGE_MAP = {
         "D1_safety_gate.jpeg",
         "D7_controller_setting.jpeg"
     ],
+
     "mechanical":
     [
         "main_D.jpeg",
@@ -17,6 +18,10 @@ IMAGE_MAP = {
         "D1_safety_gate.jpeg"
     ],
 
+    "filter":
+    [
+        "filter_removal.jpeg",
+    ],
 
     "cover":
     [
@@ -67,6 +72,11 @@ IMAGE_MAP = {
         "main_D.jpeg",
         "D8_barrel_cover.jpeg",
         "screw and barrel.jpeg"
+    ],
+
+    "cooler":
+    [
+        "cooler_removal.jpeg",
     ],
 
 
@@ -129,6 +139,7 @@ IMAGE_MAP = {
 
     "air filter":
     [
+        "filter_removal.jpeg",
         "main_S.jpeg",
         "S9_air_filter.jpeg"
     ],
