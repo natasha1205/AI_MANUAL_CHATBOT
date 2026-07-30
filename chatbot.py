@@ -46,14 +46,13 @@ collection = client.get_collection(
 # ======================================
 # CHECK USER QUESTION
 # ======================================
-
 def validate_question(question):
 
 
     question = question.lower().strip()
 
 
-    # General greetings / unrelated words
+    # Reject greetings
 
     invalid_questions = [
 
@@ -65,86 +64,83 @@ def validate_question(question):
         "good evening",
         "thanks",
         "thank you",
-        "help",
         "test"
 
     ]
 
 
-    for word in invalid_questions:
-
-
-        if question == word:
-
-            return False
-
-
-
-    # Minimum length
-
-    if len(question.split()) < 3:
+    if question in invalid_questions:
 
         return False
 
 
 
-    # Machine related keywords
+    # Minimum words
 
-    machine_keywords = [
+    if len(question.split()) < 2:
+
+        return False
+
+
+
+    # Allow machine parts and maintenance terms
+
+    related_keywords = [
 
         "alarm",
-        "injection",
-        "safety",
         "error",
         "fault",
-        "machine",
+
+        # machine parts
+        "injection",
+        "injection unit",
+        "injection motor",
+        "servo",
+        "hydraulic",
         "motor",
+        "pump",
+        "valve",
         "sensor",
         "temperature",
         "pressure",
-        "hydraulic",
-        "servo",
-        "pump",
-        "valve",
+        "barrel",
+        "screw",
+        "nozzle",
+        "mold",
+        "clamp",
+        "platen",
+        "controller",
+        "cover",
+        "cooler",
+        "tank",
+        "hose",
+
+        # actions
         "reset",
         "replace",
         "change",
+        "check",
+        "fix",
+        "repair",
         "maintenance",
-        "problem",
-        "issue",
-        "screen",
-        "display",
-        "safety",
-        "gate",
-        "controller",
-        "barrel",
-        "mold",
-        "filter",
-        "nozzle",
-        "hose",
-        "cooler",
-        "tank",
-        "screw",
-        "injection",
-        "alarm light",
-        "filter removal"
 
+        # safety
+        "safety",
+        "gate"
 
     ]
 
 
 
-    for keyword in machine_keywords:
+    for word in related_keywords:
 
-
-        if keyword in question:
+        if word in question:
 
             return True
 
 
 
     return False
-
 # ======================================
 # SEARCH MANUAL + PDF
 # ======================================
