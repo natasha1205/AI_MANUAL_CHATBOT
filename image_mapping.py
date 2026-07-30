@@ -134,7 +134,7 @@ IMAGE_MAP = {
     "barrel":
     [
         "main_S.jpeg",
-        "D7_controller_setting.jpeg",
+        "D7_controller.jpeg",
         "screw and barrel.jpeg"
     ]
 

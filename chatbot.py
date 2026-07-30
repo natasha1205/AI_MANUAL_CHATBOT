@@ -101,7 +101,7 @@ def validate_question(question):
         "temperature",
         "pressure",
         "hydraulic",
-        "servo motor",
+        "servo",
         "pump",
         "valve",
         "reset",
@@ -533,7 +533,6 @@ question = st.text_input(
 
 
 
-
 if st.button("Search"):
 
 
@@ -599,4 +598,3 @@ if st.button("Search"):
                     question,
                     answer
                 )
-
