@@ -1,434 +1,343 @@
+import os
 import shutil
-import re
-from pathlib import Path
+import chromadb
 
-from langchain_core.documents import Document
-from langchain_chroma import Chroma
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+
+from langchain_community.document_loaders import (
+    TextLoader,
+    PyPDFLoader
+)
+
+
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.document_loaders import PyPDFLoader
 
 
 
-# =====================================
+# ======================================
 # PATH
-# =====================================
-
-BASE_DIR = Path(__file__).resolve().parent
-
-MANUAL_FOLDER = BASE_DIR / "manual"
-
-DATABASE_FOLDER = BASE_DIR / "database"
+# ======================================
 
 
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
 
-# =====================================
-# CLEAN PDF TEXT
-# =====================================
-
-def clean_pdf_text(text):
-
-
-    # remove new line
-
-    text = text.replace(
-        "\n",
-        " "
-    )
+MANUAL_FOLDER = os.path.join(
+    BASE_DIR,
+    "manual"
+)
 
 
-    # remove extra spaces
+TXT_PATH = os.path.join(
+    MANUAL_FOLDER,
+    "manual.txt"
+)
 
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
+
+PDF_PATH = os.path.join(
+    MANUAL_FOLDER,
+    "operation_manual.pdf"
+)
 
 
 
-    remove_words = [
-
-        "Injection Molding Machine",
-
-        "Chapter",
-
-        "V3.0",
-
-        "Zhafir",
-
-        "Plastics Machinery",
-
-        "Page"
-
-    ]
+DATABASE_PATH = os.path.join(
+    BASE_DIR,
+    "database"
+)
 
 
 
-    for word in remove_words:
+
+# ======================================
+# DELETE OLD DATABASE
+# ======================================
 
 
-        text = text.replace(
+if os.path.exists(DATABASE_PATH):
 
-            word,
+    print("Removing old database...")
 
-            ""
-
-        )
-
-
-
-    # remove page number
-
-    text = re.sub(
-
-        r"\b\d+-\d+\b",
-
-        "",
-
-        text
-
+    shutil.rmtree(
+        DATABASE_PATH
     )
 
 
 
-    # remove function keys
 
-    text = re.sub(
+# ======================================
+# LOAD TXT + PDF
+# ======================================
 
-        r"F[1-8]",
 
-        "",
+documents = []
 
-        text
+
+
+# ---------- TXT ----------
+
+
+if os.path.exists(TXT_PATH):
+
+    print("Loading manual.txt...")
+
+    txt_loader = TextLoader(
+
+        TXT_PATH,
+
+        encoding="utf-8"
 
     )
 
 
-    return text.strip()
+    txt_documents = txt_loader.load()
+
+
+    for doc in txt_documents:
+
+        if doc.page_content.strip():
+
+            doc.metadata["source"] = "manual.txt"
+
+            documents.append(doc)
+
+
+
+else:
+
+    print(
+        "manual.txt not found"
+    )
 
 
 
 
-
-# =====================================
-# LOAD TXT
-# =====================================
-
-def load_txt():
+# ---------- PDF ----------
 
 
-    documents=[]
+if os.path.exists(PDF_PATH):
+
+    print(
+        "Loading operation_manual.pdf..."
+    )
 
 
-    txt_file = MANUAL_FOLDER / "manual.txt"
+    pdf_loader = PyPDFLoader(
+        PDF_PATH
+    )
 
 
-
-    if txt_file.exists():
-
-
-        print(
-            "Loading manual.txt"
-        )
+    pdf_documents = pdf_loader.load()
 
 
 
-        text = txt_file.read_text(
-
-            encoding="utf-8"
-
-        )
+    for doc in pdf_documents:
 
 
+        # remove empty pages
 
-        parts = text.split(
-
-            "Alarm Name:"
-
-        )
+        if doc.page_content.strip():
 
 
-
-        for part in parts:
-
-
-            if part.strip()=="":
-
-                continue
-
-
-
-            content = (
-
-                "Alarm Name:"
-
-                +
-
-                part
-
+            doc.metadata["source"] = (
+                "operation_manual.pdf"
             )
 
 
+            documents.append(doc)
 
-            documents.append(
 
 
-                Document(
+else:
 
-                    page_content=content,
 
-                    metadata={
+    print(
+        "operation_manual.pdf not found"
+    )
 
-                        "source":"manual.txt"
 
-                    }
 
+
+
+print(
+    "\nTotal documents:",
+    len(documents)
+)
+
+
+
+
+# ======================================
+# SPLIT DOCUMENTS
+# ======================================
+
+
+splitter = RecursiveCharacterTextSplitter(
+
+    chunk_size=800,
+
+    chunk_overlap=150
+
+)
+
+
+
+chunks = splitter.split_documents(
+    documents
+)
+
+
+
+
+# remove empty chunks
+
+
+clean_chunks = []
+
+
+for doc in chunks:
+
+
+    text = doc.page_content.strip()
+
+
+    if text:
+
+
+        clean_chunks.append(doc)
+
+
+
+chunks = clean_chunks
+
+
+
+print(
+
+    "Created chunks:",
+
+    len(chunks)
+
+)
+
+
+
+
+# ======================================
+# EMBEDDING MODEL
+# ======================================
+
+
+print(
+    "Loading embedding model..."
+)
+
+
+embedding_model = HuggingFaceEmbeddings(
+
+    model_name=
+    "sentence-transformers/all-MiniLM-L6-v2"
+
+)
+
+
+
+
+# ======================================
+# CREATE CHROMA
+# ======================================
+
+
+client = chromadb.PersistentClient(
+
+    path=DATABASE_PATH
+
+)
+
+
+
+collection = client.create_collection(
+
+    name="manual_library"
+
+)
+
+
+
+
+
+# ======================================
+# INSERT DATA
+# ======================================
+
+
+print(
+    "Creating vector database..."
+)
+
+
+
+for index, doc in enumerate(chunks):
+
+
+    text = doc.page_content.strip()
+
+
+
+    if text == "":
+
+        continue
+
+
+
+    collection.add(
+
+        ids=[
+
+            str(index)
+
+        ],
+
+
+        documents=[
+
+            text
+
+        ],
+
+
+
+        metadatas=[
+
+            {
+
+                "source":
+
+                doc.metadata.get(
+                    "source",
+                    "unknown"
                 )
 
-            )
+            }
 
-
-
-    return documents
-
-
-
-
-
-# =====================================
-# LOAD PDF
-# =====================================
-
-def load_pdf():
-
-
-    documents=[]
-
-
-
-    pdf_files=list(
-
-        MANUAL_FOLDER.glob("*.pdf")
+        ]
 
     )
 
 
 
-    for pdf in pdf_files:
 
 
-        print(
+print(
+    "\nLibrary created successfully"
+)
 
-            "Loading PDF:",
 
-            pdf.name
-
-        )
-
-
-
-        loader = PyPDFLoader(
-
-            str(pdf)
-
-        )
-
-
-
-        pages = loader.load()
-
-
-
-        print(
-
-            "PDF pages:",
-
-            len(pages)
-
-        )
-
-
-
-
-        for page in pages:
-
-
-
-            cleaned = clean_pdf_text(
-
-                page.page_content
-
-            )
-
-
-
-            if len(cleaned)>100:
-
-
-
-                documents.append(
-
-
-                    Document(
-
-                        page_content=cleaned,
-
-                        metadata={
-
-                            "source":"PDF",
-
-                            "file":pdf.name
-
-                        }
-
-                    )
-
-                )
-
-
-
-    return documents
-
-
-
-
-
-# =====================================
-# CREATE DATABASE
-# =====================================
-
-def main():
-
-
-    print(
-        "Program started..."
-    )
-
-
-
-    documents=[]
-
-
-
-    txt_documents = load_txt()
-
-
-    pdf_documents = load_pdf()
-
-
-
-    documents.extend(
-
-        txt_documents
-
-    )
-
-
-    documents.extend(
-
-        pdf_documents
-
-    )
-
-
-
-    print(
-
-        "TXT documents:",
-
-        len(txt_documents)
-
-    )
-
-
-    print(
-
-        "PDF documents:",
-
-        len(pdf_documents)
-
-    )
-
-
-    print(
-
-        "Total documents:",
-
-        len(documents)
-
-    )
-
-
-
-    embedding = HuggingFaceEmbeddings(
-
-
-        model_name=
-
-        "sentence-transformers/all-MiniLM-L6-v2",
-
-
-        encode_kwargs={
-
-            "normalize_embeddings":True
-
-        }
-
-
-    )
-
-
-
-    if DATABASE_FOLDER.exists():
-
-
-        print(
-
-            "Deleting old database..."
-
-        )
-
-
-        shutil.rmtree(
-
-            DATABASE_FOLDER
-
-        )
-
-
-
-    Chroma.from_documents(
-
-
-        documents,
-
-
-        embedding,
-
-
-        collection_name=
-
-        "machine_manual",
-
-
-        persist_directory=
-
-        str(DATABASE_FOLDER)
-
-    )
-
-
-
-    print(
-
-        "Database created successfully"
-
-    )
-
-
-
-
-if __name__=="__main__":
-
-    main()
+print(
+    "Total stored:",
+    collection.count()
+)

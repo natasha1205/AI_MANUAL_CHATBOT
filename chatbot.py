@@ -1,420 +1,308 @@
 import streamlit as st
-from pathlib import Path
-import re
+import os
+import chromadb
+import requests
 
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
-from image_mapping import IMAGE_MAP 
-
+from image_mapping import get_related_images
 
 
-# ==========================================
+# ======================================
 # PATH
-# ==========================================
+# ======================================
 
-BASE_DIR = Path(__file__).resolve().parent
-
-DATABASE_FOLDER = BASE_DIR / "database"
-
-IMAGE_FOLDER = BASE_DIR / "images"
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
 
-
-# ==========================================
-# LOAD DATABASE
-# ==========================================
-
-@st.cache_resource
-def load_database():
+DATABASE_PATH = os.path.join(
+    BASE_DIR,
+    "database"
+)
 
 
-    embedding = HuggingFaceEmbeddings(
-
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-
-        encode_kwargs={
-            "normalize_embeddings": True
-        }
-
-    )
-
-
-    db = Chroma(
-
-        collection_name="machine_manual",
-
-        persist_directory=str(DATABASE_FOLDER),
-
-        embedding_function=embedding
-
-    )
-
-
-    return db
+IMAGE_FOLDER = os.path.join(
+    BASE_DIR,
+    "images"
+)
 
 
 
-db = load_database()
+# ======================================
+# LOAD CHROMA DATABASE
+# ======================================
+
+client = chromadb.PersistentClient(
+    path=DATABASE_PATH
+)
+
+
+collection = client.get_collection(
+    name="manual_library"
+)
 
 
 
-# ==========================================
-# FORMAT PDF ANSWER
-# ==========================================
+# ======================================
+# SEARCH MANUAL + PDF
+# ======================================
 
-def clean_pdf_answer(text, question):
+def search_manual(question):
 
+    result = collection.query(
 
-    question_words = question.lower().split()
+        query_texts=[
+            question
+        ],
 
+        n_results=2,
 
-    sentences = re.split(
-
-        r'[\n.]',
-
-        text
+        include=[
+            "documents"
+        ]
 
     )
 
 
-    useful = []
+    documents = result.get(
+        "documents",
+        []
+    )
+
+
+    if documents and documents[0]:
+
+        return documents[0]
+
+
+    return []
 
 
 
-    remove_words = [
 
-        "chapter",
+# ======================================
+# OLLAMA ANSWER
+# ======================================
 
-        "version",
-
-        "zhafir",
-
-        "plastics machinery",
-
-        "page",
-
-        "manual",
-
-        "contents"
-
-    ]
+def ask_ollama(context, question, language):
 
 
+    if language == "Malay":
 
-    for sentence in sentences:
+        instruction = """
 
+Jawab dalam Bahasa Melayu sahaja.
 
-        sentence = sentence.strip()
+Gunakan maklumat daripada manual dan PDF sahaja.
 
+Tukar ayat teknikal kepada ayat mudah difahami operator.
 
-        if len(sentence) < 40:
+Susun jawapan dalam bentuk point:
 
-            continue
+Alarm Name:
+- 
 
+Description:
+-
 
+Cause:
+-
 
-        lower = sentence.lower()
+Screen Display:
+-
 
+Machine State:
+-
 
-
-        # remove useless PDF heading
-
-        if any(
-
-            word in lower
-
-            for word in remove_words
-
-        ):
-
-            continue
-
-
-
-        # check relevance
-
-        score = 0
+Solution:
+-
 
 
-        for word in question_words:
+Jangan tambah maklumat luar.
 
 
-            if len(word) > 3 and word in lower:
-
-                score += 1
+"""
 
 
-
-        if score > 0:
-
-            useful.append(sentence)
+    else:
 
 
+        instruction = """
 
-    if not useful:
+Answer in English only.
+
+Use information from manual and PDF only.
+
+Change technical sentences into simple words for operators.
+
+Format answer using points:
+
+Alarm Name:
+-
+
+Description:
+-
+
+Cause:
+-
+
+Screen Display:
+-
+
+Machine State:
+-
+
+Solution:
+-
 
 
-        return "No related information found."
+Do not add outside information.
 
-
-
-    answer = """
-
-## Related Information
 
 """
 
 
 
-    for item in useful[:6]:
+    prompt = f"""
+
+You are a Machine Manual Assistant.
 
 
-        answer += (
+{instruction}
 
-            "• "
 
-            +
+Information from manual/pdf:
 
-            item
+{context}
 
-            +
 
-            "\n\n"
+User Question:
+
+{question}
+
+
+"""
+
+
+
+    try:
+
+
+        response = requests.post(
+
+            "http://localhost:11434/api/generate",
+
+            json={
+
+                "model":"llama3",
+
+                "prompt":prompt,
+
+                "stream":False
+
+            }
 
         )
 
 
-
-    return answer
-
+        data = response.json()
 
 
-
-# ==========================================
-# SEARCH MANUAL
-# ==========================================
-
-def search_manual(question):
+        return data.get(
+            "response",
+            ""
+        )
 
 
-    results = db.similarity_search_with_score(
+    except Exception as e:
 
-        question,
 
-        k=10
+        return "Ollama Error: " + str(e)
+
+
+
+
+# ======================================
+# DISPLAY IMAGE
+# ======================================
+
+def display_images(question, answer):
+
+
+    search_text = (
+
+        question +
+
+        " " +
+
+        answer
 
     )
 
 
-
-    if not results:
-
-
-        return "No accurate information found."
+    images = get_related_images(
+        search_text
+    )
 
 
+    if not images:
 
-    # ======================================
-    # ALARM SEARCH FIRST
-    # ======================================
-
-    for doc,score in results:
-
-
-        content = doc.page_content
+        return
 
 
 
-        if (
-
-            "Alarm Name:" in content
-
-            and
-
-            "Solution:" in content
-
-        ):
+    st.divider()
 
 
-            return format_alarm(content)
+    st.subheader(
+        "Related Image"
+    )
 
 
 
-    # ======================================
-    # PDF SEARCH
-    # ======================================
+    for image in images:
 
 
-    matched_text = ""
+        image_path = os.path.join(
+
+            IMAGE_FOLDER,
+
+            image
+
+        )
 
 
-
-    for doc,score in results:
-
-
-        text = doc.page_content
+        if os.path.exists(image_path):
 
 
-        question_word = question.lower().split()
+            st.image(
 
+                image_path,
 
-        match = 0
-
-
-
-        for word in question_word:
-
-
-            if len(word)>3 and word in text.lower():
-
-                match += 1
-
-
-
-        if match >= 1:
-
-
-            matched_text += (
-
-                text
-
-                +
-
-                "\n"
+                width=600
 
             )
 
 
 
-    if matched_text == "":
 
 
-        return "No related information found."
-
-
-
-    return clean_pdf_answer(
-
-        matched_text,
-
-        question
-
-    )
-
-
-
-
-# ==========================================
-# FORMAT ALARM OUTPUT
-# ==========================================
-
-def format_alarm(text):
-
-
-    lines = text.split("\n")
-
-
-    output = ""
-
-
-
-    for line in lines:
-
-
-        line=line.strip()
-
-
-
-        if line=="":
-
-            continue
-
-
-
-        # remove No:xxx
-
-        if re.match(
-
-            r"^No\.?\s*:?\s*\d+",
-
-            line,
-
-            re.I
-
-        ):
-
-            continue
-
-
-
-        output += (
-
-            line
-
-            +
-
-            "\n\n"
-
-        )
-
-
-
-    return output
-
-
-
-
-# ==========================================
-# IMAGE FINDER
-# ==========================================
-
-def find_image(question):
-
-
-    images=[]
-
-
-    question = question.lower()
-
-
-
-    for keyword,image_list in IMAGE_MAP.items():
-
-
-        if keyword.lower() in question:
-
-
-            for img in image_list:
-
-
-                if img not in images:
-
-
-                    images.append(img)
-
-
-
-    return images
-
-
-
-
-# ==========================================
+# ======================================
 # STREAMLIT UI
-# ==========================================
+# ======================================
 
 st.set_page_config(
 
-    page_title="Machine Manual Assistant"
+    page_title="Machine#1 Manual Assistant",
+
+    layout="centered"
 
 )
 
 
 
 st.title(
-
     "Machine#1 Manual Assistant"
-
 )
 
 
@@ -446,69 +334,96 @@ question = st.text_input(
 if st.button("Search"):
 
 
-    if question.strip()=="":
+    if question.strip() == "":
 
 
         st.warning(
-
-            "Please enter question"
-
+            "Please enter your question."
         )
 
 
     else:
 
 
-        answer = search_manual(question)
+        with st.spinner(
+            "Searching manual..."
+        ):
 
 
 
-        st.subheader(
+            # Search manual + pdf
 
-            "Answer:"
-
-        )
-
-
-
-        st.markdown(
-
-            answer
-
-        )
-
-
-
-        # image display
-
-        image_list = find_image(question)
-
-
-
-        if image_list:
-
-
-            st.subheader(
-
-                "Visual Guide"
-
+            docs = search_manual(
+                question
             )
 
 
-            for img in image_list:
+
+            if not docs:
 
 
-                image_path = IMAGE_FOLDER / img
+                st.error(
+
+                    "No related information found in manual/pdf."
+
+                )
+
+
+                # still show image based on question
+
+                display_images(
+
+                    question,
+
+                    ""
+
+                )
 
 
 
-                if image_path.exists():
+            else:
 
 
-                    st.image(
 
-                        str(image_path),
+                context = "\n\n".join(
+                    docs
+                )
 
-                        use_container_width=True
 
-                    )
+
+                answer = ask_ollama(
+
+                    context,
+
+                    question,
+
+                    language
+
+                )
+
+
+
+                st.divider()
+
+
+                st.header(
+                    "Answer"
+                )
+
+
+
+                st.markdown(
+                    answer
+                )
+
+
+
+                # image based on question + answer
+
+                display_images(
+
+                    question,
+
+                    answer
+
+                )
