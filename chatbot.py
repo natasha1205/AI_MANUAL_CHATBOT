@@ -1,9 +1,11 @@
 import streamlit as st
 import os
+import re
 import chromadb
 import requests
 
 from image_mapping import get_related_images
+
 
 
 # ======================================
@@ -29,7 +31,7 @@ IMAGE_FOLDER = os.path.join(
 
 
 # ======================================
-# LOAD CHROMA DATABASE
+# CHROMA DATABASE
 # ======================================
 
 client = chromadb.PersistentClient(
@@ -49,13 +51,14 @@ collection = client.get_collection(
 
 def search_manual(question):
 
+
     result = collection.query(
 
         query_texts=[
             question
         ],
 
-        n_results=2,
+        n_results=5,
 
         include=[
             "documents"
@@ -70,7 +73,7 @@ def search_manual(question):
     )
 
 
-    if documents and documents[0]:
+    if documents:
 
         return documents[0]
 
@@ -79,46 +82,65 @@ def search_manual(question):
 
 
 
+# ======================================
+# CLEAN TEXT
+# ======================================
+
+def clean_text(text):
+
+
+    text = re.sub(
+        r"No\.\s*:\s*\S+",
+        "",
+        text
+    )
+
+
+    text = re.sub(
+        r"\n+",
+        "\n",
+        text
+    )
+
+
+    return text.strip()
+
+
 
 # ======================================
-# OLLAMA ANSWER
+# OLLAMA AI ANSWER
 # ======================================
 
-def ask_ollama(context, question, language):
+def ask_ai(context, question, language):
 
 
     if language == "Malay":
+
 
         instruction = """
 
 Jawab dalam Bahasa Melayu sahaja.
 
-Gunakan maklumat daripada manual dan PDF sahaja.
+Gunakan maklumat manual dan PDF sahaja.
 
-Tukar ayat teknikal kepada ayat mudah difahami operator.
-
-Susun jawapan dalam bentuk point:
-
-Alarm Name:
-- 
-
-Description:
--
-
-Cause:
--
-
-Screen Display:
--
-
-Machine State:
--
-
-Solution:
--
-
+Tukar ayat teknikal kepada ayat mudah yang operator boleh faham.
 
 Jangan tambah maklumat luar.
+
+Format jawapan:
+
+
+Nama Alarm:
+
+Penerangan:
+
+Punca:
+
+Paparan Skrin:
+
+Keadaan Mesin:
+
+Penyelesaian:
 
 
 """
@@ -131,32 +153,27 @@ Jangan tambah maklumat luar.
 
 Answer in English only.
 
-Use information from manual and PDF only.
+Use only information from manual and PDF.
 
-Change technical sentences into simple words for operators.
-
-Format answer using points:
-
-Alarm Name:
--
-
-Description:
--
-
-Cause:
--
-
-Screen Display:
--
-
-Machine State:
--
-
-Solution:
--
-
+Convert technical sentences into simple operator language.
 
 Do not add outside information.
+
+
+Answer format:
+
+
+Alarm Name:
+
+Description:
+
+Cause:
+
+Screen Display:
+
+Machine State:
+
+Solution:
 
 
 """
@@ -171,12 +188,15 @@ You are a Machine Manual Assistant.
 {instruction}
 
 
-Information from manual/pdf:
+Manual/PDF Information:
+
 
 {context}
 
 
+
 User Question:
+
 
 {question}
 
@@ -194,7 +214,7 @@ User Question:
 
             json={
 
-                "model":"llama3",
+                "model":"llama3.1",
 
                 "prompt":prompt,
 
@@ -205,20 +225,17 @@ User Question:
         )
 
 
-        data = response.json()
+        result = response.json()
 
 
-        return data.get(
-            "response",
-            ""
-        )
+        return result["response"]
+
 
 
     except Exception as e:
 
 
-        return "Ollama Error: " + str(e)
-
+        return f"Ollama Error: {e}"
 
 
 
@@ -229,19 +246,10 @@ User Question:
 def display_images(question, answer):
 
 
-    search_text = (
-
-        question +
-
-        " " +
-
-        answer
-
-    )
-
-
     images = get_related_images(
-        search_text
+
+        question + " " + answer
+
     )
 
 
@@ -260,40 +268,38 @@ def display_images(question, answer):
 
 
 
-    for image in images:
+    for img in images:
 
 
-        image_path = os.path.join(
+        img_path = os.path.join(
 
             IMAGE_FOLDER,
 
-            image
+            img
 
         )
 
 
-        if os.path.exists(image_path):
+        if os.path.exists(img_path):
 
 
             st.image(
 
-                image_path,
+                img_path,
 
-                width=600
+                use_container_width=True
 
             )
 
 
 
-
-
 # ======================================
-# STREAMLIT UI
+# STREAMLIT SETTINGS
 # ======================================
 
 st.set_page_config(
 
-    page_title="Machine#1 Manual Assistant",
+    page_title="Machine Manual Assistant",
 
     layout="centered"
 
@@ -331,6 +337,10 @@ question = st.text_input(
 
 
 
+# ======================================
+# SEARCH BUTTON
+# ======================================
+
 if st.button("Search"):
 
 
@@ -338,23 +348,28 @@ if st.button("Search"):
 
 
         st.warning(
+
             "Please enter your question."
+
         )
 
 
     else:
 
 
+
         with st.spinner(
+
             "Searching manual..."
+
         ):
 
 
 
-            # Search manual + pdf
-
             docs = search_manual(
+
                 question
+
             )
 
 
@@ -364,21 +379,9 @@ if st.button("Search"):
 
                 st.error(
 
-                    "No related information found in manual/pdf."
+                    "No related information found in manual."
 
                 )
-
-
-                # still show image based on question
-
-                display_images(
-
-                    question,
-
-                    ""
-
-                )
-
 
 
             else:
@@ -386,12 +389,14 @@ if st.button("Search"):
 
 
                 context = "\n\n".join(
+
                     docs
+
                 )
 
 
 
-                answer = ask_ollama(
+                answer = ask_ai(
 
                     context,
 
@@ -407,18 +412,19 @@ if st.button("Search"):
 
 
                 st.header(
-                    "Answer"
-                )
 
+                    "Answer"
+
+                )
 
 
                 st.markdown(
+
                     answer
+
                 )
 
 
-
-                # image based on question + answer
 
                 display_images(
 

@@ -144,35 +144,26 @@ DEFAULT_IMAGES = [
 
 def get_related_images(question):
 
-
+    
     question = question.lower()
 
 
-    result = []
-
+    result=[]
 
 
     for keyword, images in IMAGE_MAP.items():
 
-
         if keyword in question:
-
 
             for img in images:
 
-
                 if img not in result:
-
                     result.append(img)
 
 
+    if not result:
 
-    # no keyword matched
-
-    if len(result) == 0:
-
-        result = DEFAULT_IMAGES
-
+        result.extend(DEFAULT_IMAGES)
 
 
     return result

@@ -1,6 +1,6 @@
 streamlit
 chromadb
-requests
+openai
 langchain
 langchain-community
 langchain-text-splitters
