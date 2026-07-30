@@ -154,12 +154,12 @@ IMAGE_MAP = {
     ],
 
 
-    "barrel":
+    "barrel temperature":
     [
-        "main_S.jpeg",
-        "D6_controller.jpeg",
-        "injection unit.jpeg",
-        "screw and barrel.jpeg" 
+        "main_D.jpeg",
+        "temperature.jpeg",
+        "screw and barrel.jpeg",
+        "D6_controller.jpeg"
     ]
 
 }
