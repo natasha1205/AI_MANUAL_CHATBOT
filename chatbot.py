@@ -93,7 +93,7 @@ def validate_question(question):
     machine_keywords = [
 
         "alarm",
-        "injection",
+        "injection unit",
         "safety",
         "error",
         "fault",
