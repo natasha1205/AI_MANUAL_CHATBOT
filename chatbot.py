@@ -197,24 +197,17 @@ def format_answer(documents, language):
 
 
         answer = f"""
-
 Nama Alarm: {data['alarm']}
-
 
 Penerangan: {data['description']}
 
-
 Punca: {data['cause']}
-
 
 Paparan Skrin: {data['screen']}
 
-
 Keadaan Mesin: {data['machine']}
 
-
 Penyelesaian: {data['solution']}
-
 """
 
 
@@ -222,24 +215,17 @@ Penyelesaian: {data['solution']}
 
 
         answer = f"""
-
 Alarm Name: {data['alarm']}
-
 
 Description: {data['description']}
 
-
 Cause: {data['cause']}
-
 
 Screen Display: {data['screen']}
 
-
 Machine State: {data['machine']}
 
-
-Solution: {data['solution']}
-
+Solution:{data['solution']}
 """
 
 
@@ -397,8 +383,7 @@ if st.button("Search"):
                 )
 
 
-                # IMPORTANT
-                # use text not markdown
+               
                 st.text(
                     answer
                 )

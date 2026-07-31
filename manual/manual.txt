@@ -1,5 +1,11 @@
 MACHINE#1 MANUAL 
 
+Operation Step 
+heating: Turn on band heaters and set the temperature based on your plastic type (e.g. around 180c for polypropylene). wait 20 to 30 minutes so the material inside melts fully. 
+Clamping: Insert or close the mold tightly using the manual clamp lever or hand wheel to lock the two halves securely together.
+Injecting: Feed plastic pellets into the hopper. Push the hand lever or turn the injection wheel forward to force the melted plastic into the mold cavity.
+Cooling and Ejection: Hold the pressure steady for a short moment. Let the part cool down, open the mold, and take your finished plastic piece out.
+
 No.: 21
 Alarm Name: Mechanical safety abnormal
 Description: Mechanical safety abnormal (check and confirm the mechanical safety device)
@@ -13,7 +19,7 @@ No.: 22
 Alarm Name: Mold close overtime
 Description: Mold close time exceeds mold close safety time.
 Cause: Under manual/semi-auto/full-auto mode, mold close time exceeds mold close safety time.
-Screen Display / Alarm Light: The screen displays “mold close overtime” and the red alarm light flashes.
+Screen Display / Alarm Light: The screen displays “mold  close overtime” and the red alarm light flashes.
 Machine State After Alarm: The machine stops and switches to manual mode. Any releated movements are forbidden, waiting for alarm elimination.
 Solution: Press manual button to immediately disable alarm light and display message.
 
@@ -196,13 +202,13 @@ Solution: After the injection button is released, display message automatically 
 
 
 No.: 64
-Alarm Name: Barrel heating off
+Alarm Name: Barrel temperature heating off
 Description: Barrel heating off
 Cause: When the barrel heating is turned off, perform injection, charge and suck back movements.
 Screen Display / Alarm Light: The screen displays “barrel heating off” and the red alarm light is on.
-Machine State After Alarm: Injection, charge and suck back disabled.
+Machine State After Alarm: 1. Injection, charge and suck back disabled.
 Solution: The display m automatically disappears after injection, charge and suck back buttons are  press manual button to immediately disable alarm light and display message.
-
+2.Turn on band heaters and set the temperature based on your plastic type (e.g. around 180c for polypropylene). wait 20 to 30 minutes so the material inside melts fully. 
 
 No.: 65
 Alarm Name: Motor off
