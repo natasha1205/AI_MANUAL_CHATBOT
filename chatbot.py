@@ -6,7 +6,6 @@ import chromadb
 from image_mapping import get_related_images
 
 
-
 # ======================================
 # PATH
 # ======================================
@@ -15,12 +14,10 @@ BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
 
-
 DATABASE_PATH = os.path.join(
     BASE_DIR,
     "database"
 )
-
 
 IMAGE_FOLDER = os.path.join(
     BASE_DIR,
@@ -28,9 +25,8 @@ IMAGE_FOLDER = os.path.join(
 )
 
 
-
 # ======================================
-# LOAD CHROMA DATABASE
+# LOAD DATABASE
 # ======================================
 
 client = chromadb.PersistentClient(
@@ -43,113 +39,12 @@ collection = client.get_collection(
 )
 
 
+
 # ======================================
-# CHECK USER QUESTION
-# ======================================
-def validate_question(question):
-
-
-    question = question.lower().strip()
-
-
-    # Reject greetings
-
-    invalid_questions = [
-
-        "hello",
-        "hi",
-        "hey",
-        "good morning",
-        "good afternoon",
-        "good evening",
-        "thanks",
-        "thank you",
-        "test"
-
-    ]
-
-
-    if question in invalid_questions:
-
-        return False
-
-
-
-    # Minimum words
-
-    if len(question.split()) < 2:
-
-        return False
-
-
-
-    # Allow machine parts and maintenance terms
-
-    related_keywords = [
-
-        "alarm",
-        "error",
-        "fault",
-
-        # machine parts
-        "injection",
-        "injection unit",
-        "injection motor",
-        "servo",
-        "hydraulic",
-        "motor",
-        "pump",
-        "valve",
-        "sensor",
-        "temperature",
-        "pressure",
-        "barrel",
-        "screw",
-        "nozzle",
-        "mold",
-        "clamp",
-        "platen",
-        "controller",
-        "cover",
-        "cooler",
-        "tank",
-        "hose",
-
-        # actions
-        "reset",
-        "replace",
-        "change",
-        "check",
-        "fix",
-        "repair",
-        "maintenance",
-
-        # safety
-        "safety",
-        "gate",
-        "interlock",
-        "emergency"
-
-
-    ]
-
-
-
-    for word in related_keywords:
-
-        if word in question:
-
-            return True
-
-
-
-    return False
-# ======================================
-# SEARCH MANUAL + PDF
+# SEARCH DATABASE
 # ======================================
 
 def search_manual(question):
-
 
     result = collection.query(
 
@@ -160,8 +55,7 @@ def search_manual(question):
         n_results=1,
 
         include=[
-            "documents",
-            "metadatas"
+            "documents"
         ]
 
     )
@@ -173,18 +67,14 @@ def search_manual(question):
     )
 
 
-    metadatas = result.get(
-        "metadatas",
-        []
-    )
+    if documents:
+
+        return documents[0]
 
 
-    if documents and documents[0]:
-
-        return documents[0], metadatas[0]
+    return []
 
 
-    return [], []
 
 # ======================================
 # CLEAN TEXT
@@ -192,241 +82,168 @@ def search_manual(question):
 
 def clean_text(text):
 
-
     text = re.sub(
-
-        r"\n{2,}",
-
-        "\n",
-
+        r"No\.\s*:\s*\d+",
+        "",
         text
-
     )
 
 
-    text = text.replace(
-        "\t",
-        " "
+    text = re.sub(
+        r"\n+",
+        "\n",
+        text
     )
 
 
     return text.strip()
 
 
+
 # ======================================
-# EXTRACT ALARM INFORMATION
+# EXTRACT INFORMATION
 # ======================================
 
 def extract_alarm(text):
 
 
-    alarm = ""
-    description = ""
-    cause = ""
-    screen = ""
-    machine = ""
-    solution = ""
+    text = clean_text(text)
 
 
+    data = {
 
-# Remove page number
-
-    text = re.sub(
-
-        r"No\.\s*:\s*\d+",
-
-        "",
-
-        text
-
-    )
-
-
-# Alarm Name
-
-    match = re.search(
-
-        r"Alarm Name[:\s]*(.*?)(?=Description|$)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        alarm = match.group(1).strip()
-
-
-
-
-    # Description
-
-    match = re.search(
-
-        r"Description[:\s]*(.*?)(?=Cause|$)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        description = match.group(1).strip()
-
-
-
-
-    # Cause
-
-    match = re.search(
-
-        r"Cause[:\s]*(.*?)(?=Screen Display|Alarm Light|$)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        cause = match.group(1).strip()
-
-
-
-
-    # Screen Display
-
-    match = re.search(
-
-        r"(?:Screen Display|Alarm Light)[:\s]*(.*?)(?=Machine State|$)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        screen = match.group(1).strip()
-
-
-
-
-    # Machine State
-
-    match = re.search(
-
-        r"Machine State(?: After Alarm)?[:\s]*(.*?)(?=Solution|$)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        machine = match.group(1).strip()
-
-
-
-
-    # Solution
-
-    match = re.search(
-
-        r"Solution[:\s]*(.*)",
-
-        text,
-
-        re.I | re.S
-
-    )
-
-
-    if match:
-
-        solution = match.group(1).strip()
-
-
-
-
-    return {
-
-        "alarm":alarm,
-
-        "description":description,
-
-        "cause":cause,
-
-        "screen":screen,
-
-        "machine":machine,
-
-        "solution":solution
+        "alarm":"",
+        "description":"",
+        "cause":"",
+        "screen":"",
+        "machine":"",
+        "solution":""
 
     }
 
 
 
+    patterns = {
 
+
+        "alarm":
+        r"Alarm Name[:\s]*(.*?)(?=Description|$)",
+
+
+        "description":
+        r"Description[:\s]*(.*?)(?=Cause|$)",
+
+
+        "cause":
+        r"Cause[:\s]*(.*?)(?=Screen Display|Alarm Light|$)",
+
+
+        "screen":
+        r"(?:Screen Display|Alarm Light)[:\s]*(.*?)(?=Machine State|$)",
+
+
+        "machine":
+        r"Machine State(?: After Alarm)?[:\s]*(.*?)(?=Solution|$)",
+
+
+        "solution":
+        r"Solution[:\s]*(.*)"
+
+    }
+
+
+
+    for key, pattern in patterns.items():
+
+        result = re.search(
+
+            pattern,
+
+            text,
+
+            re.I | re.S
+
+        )
+
+
+        if result:
+
+            data[key] = result.group(1).strip()
+
+
+
+    return data
+
+
+
+# ======================================
+# FORMAT ANSWER
+# ======================================
 
 def format_answer(documents, language):
 
-    text = "\n".join(documents)
 
-    text = clean_text(text)
+    text = "\n".join(
+        documents
+    )
 
-    data = extract_alarm(text)
+
+    data = extract_alarm(
+        text
+    )
 
 
     if language == "Malay":
 
+
         answer = f"""
-Nama Alarm: {data["alarm"]}
 
-Penerangan: {data["description"]}
+Nama Alarm: {data['alarm']}
 
-Punca: {data["cause"]}
 
-Paparan Skrin: {data["screen"]}
+Penerangan: {data['description']}
 
-Keadaan Mesin: {data["machine"]}
 
-Penyelesaian: {data["solution"]}
+Punca: {data['cause']}
+
+
+Paparan Skrin: {data['screen']}
+
+
+Keadaan Mesin: {data['machine']}
+
+
+Penyelesaian: {data['solution']}
+
 """
 
 
     else:
 
+
         answer = f"""
-Alarm Name: {data["alarm"]}
 
-Description: {data["description"]}
+Alarm Name: {data['alarm']}
 
-Cause: {data["cause"]}
 
-Screen Display: {data["screen"]}
+Description: {data['description']}
 
-Machine State: {data["machine"]}
 
-Solution: {data["solution"]}
+Cause: {data['cause']}
+
+
+Screen Display: {data['screen']}
+
+
+Machine State: {data['machine']}
+
+
+Solution: {data['solution']}
+
 """
 
 
-    return answer
-
+    return answer.strip()
 
 
 
@@ -434,15 +251,12 @@ Solution: {data["solution"]}
 # DISPLAY IMAGE
 # ======================================
 
-def display_images(question, answer):
+def display_images(question):
 
 
     images = get_related_images(
-
-        question + " " + answer
-
+        question
     )
-
 
 
     if not images:
@@ -455,9 +269,7 @@ def display_images(question, answer):
 
 
     st.subheader(
-
         "Related Image"
-
     )
 
 
@@ -465,7 +277,7 @@ def display_images(question, answer):
     for img in images:
 
 
-        img_path=os.path.join(
+        path = os.path.join(
 
             IMAGE_FOLDER,
 
@@ -474,17 +286,16 @@ def display_images(question, answer):
         )
 
 
-        if os.path.exists(img_path):
+        if os.path.exists(path):
 
 
             st.image(
 
-                img_path,
+                path,
 
-                use_container_width=True
+                width=700
 
             )
-
 
 
 
@@ -504,11 +315,8 @@ st.set_page_config(
 
 
 st.title(
-
     "Machine#1 Manual Assistant"
-
 )
-
 
 
 
@@ -517,11 +325,8 @@ language = st.selectbox(
     "Select Language:",
 
     [
-
         "English",
-
         "Malay"
-
     ]
 
 )
@@ -539,7 +344,7 @@ question = st.text_input(
 if st.button("Search"):
 
 
-    if question.strip()=="":
+    if question.strip() == "":
 
 
         st.warning(
@@ -547,23 +352,18 @@ if st.button("Search"):
         )
 
 
-    elif not validate_question(question):
-
-
-        st.warning(
-            "Please ask a more specific question related to the machine manual. Example: 'How to reset safety gate alarm?'"
-        )
-
-
     else:
+
 
         with st.spinner(
             "Searching manual database..."
         ):
 
 
-            docs, source = search_manual(
+            docs = search_manual(
+
                 question
+
             )
 
 
@@ -571,7 +371,9 @@ if st.button("Search"):
 
 
                 st.error(
-                    "No related information found in manual."
+
+                    "No information found in manual."
+
                 )
 
 
@@ -579,25 +381,31 @@ if st.button("Search"):
 
 
                 answer = format_answer(
+
                     docs,
+
                     language
+
                 )
 
 
                 st.divider()
 
 
-                st.header(
+                st.subheader(
                     "Answer"
                 )
 
 
-                st.markdown(
+                # IMPORTANT
+                # use text not markdown
+                st.text(
                     answer
                 )
 
 
                 display_images(
-                    question,
-                    answer
+
+                    question
+
                 )
