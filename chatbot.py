@@ -126,7 +126,10 @@ def validate_question(question):
 
         # safety
         "safety",
-        "gate"
+        "gate",
+        "interlock",
+        "emergency"
+
 
     ]
 
